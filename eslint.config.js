@@ -15,7 +15,7 @@ module.exports = [
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
-      // Add custom rules here
+      '@typescript-eslint/no-explicit-any': 'off'
     },
   },
 ];
