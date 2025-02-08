@@ -1,40 +1,43 @@
-import { SlashCommandBuilder } from 'discord.js';
-import type { User } from 'discord.js';
- import { voteMessages } from '../../utils/votedMessages';
+import { SlashCommandBuilder, CommandInteraction } from 'discord.js';
+import { voteMessages } from '../../utils/votedMessages';
+import { votes } from './vote';
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('tally')
     .setDescription('Tally the votes for the last vote'),
-  async execute(interaction: any) {
+  async execute(interaction: CommandInteraction) {
     const messageId = voteMessages.get(interaction.channelId);
     if (!messageId) {
       return interaction.reply('No vote found in this channel.');
     }
 
-    const message = await interaction.channel.messages.fetch(messageId);
-    const reactions = message.reactions.cache;
+    const voteData = votes.get(messageId);
+    if (!voteData) {
+      return interaction.reply('No vote data found for the message.');
+    }
 
-    const upVotes = reactions.get('⬆️');
-    const downVotes = reactions.get('⬇️');
+    // Fetch user objects for upvotes
+    const upVoters = await Promise.all(
+      Array.from(voteData.upvotes).map(async (userId) => {
+        const user = await interaction.client.users.fetch(userId);
+        return user.username;
+      })
+    );
 
-    //find the users who reacted, and filter out the bot user
-    const upVoters = upVotes ? await upVotes.users.fetch() : [];
+    // Fetch user objects for downvotes
+    const downVoters = await Promise.all(
+      Array.from(voteData.downvotes).map(async (userId) => {
+        const user = await interaction.client.users.fetch(userId);
+        return user.username;
+      })
+    );
 
-    const downVoters = downVotes ? await downVotes.users.fetch() : [];
+    const upVoterNames = upVoters.join(', ');
+    const downVoterNames = downVoters.join(', ');
 
-    /// Filter out the bot user from the upVoterNames
-    const upVoterNames = upVoters
-      .filter((user: User) => !user.bot)
-      .map((user: User) => user.username)
-      .join(', ');
-    /// Filter out the bot user from the downVoterNames
-    const downVoterNames = downVoters
-      .filter((user: User) => !user.bot)
-      .map((user: User) => user.username)
-      .join(', ');
-
-
-    await interaction.reply(`Upvotes: ${upVoters.size - 1} (${upVoterNames})\nDownvotes: ${downVoters.size - 1} (${downVoterNames})`);
+    await interaction.reply(
+      `Upvotes: ${voteData.upvotes.size} (${upVoterNames})\nDownvotes: ${voteData.downvotes.size} (${downVoterNames})`
+    );
   },
 };
