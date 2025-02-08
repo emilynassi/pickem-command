@@ -1,0 +1,1 @@
+export const voteMessages = new Map<string, string>();
