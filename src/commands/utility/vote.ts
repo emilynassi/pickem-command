@@ -53,8 +53,13 @@ export async function execute(interaction: CommandInteraction) {
   voteMessages.set(interaction.channelId, message.id);
   votes.set(message.id, { upvotes: new Set(), downvotes: new Set() });
 
-  // Periodically check the API to lock votes
-  setInterval(() => checkApiAndLockVotes(interaction.channel), 60000); // Check every 60 seconds
+  // Periodically check the API to lock votes if there
+  const intervalId = setInterval(async () => {
+    const locked = await checkApiAndLockVotes(interaction.channel);
+    if (locked) {
+      clearInterval(intervalId); // Stop polling once votes are locked
+    }
+  }, 600); // Check every 60 seconds
 }
 
 export async function handleButtonInteraction(interaction: ButtonInteraction) {

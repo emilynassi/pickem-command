@@ -1,4 +1,4 @@
-export interface ApiResponse {
+export interface ScoreApiResponse {
   prevDate: string;
   currentDate: string;
   nextDate: string;
@@ -7,7 +7,7 @@ export interface ApiResponse {
   games: Game[];
 }
 
-interface Game {
+export interface Game {
   id: number;
   season: number;
   gameType: number;
@@ -82,6 +82,6 @@ interface TeamLeader {
   teamAbbrev: string;
   sweaterNumber: number;
   position: string;
-  category: "goals" | "assists" | "wins";
+  category: 'goals' | 'assists' | 'wins';
   value: number;
 }
