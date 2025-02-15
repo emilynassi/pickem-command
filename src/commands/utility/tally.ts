@@ -37,7 +37,7 @@ module.exports = {
     const downVoterNames = downVoters.join(', ');
 
     await interaction.reply(
-      `Upvotes: ${voteData.upvotes.size} (${upVoterNames})\nDownvotes: ${voteData.downvotes.size} (${downVoterNames})`
+      `Over: ${voteData.upvotes.size} (${upVoterNames})\Under: ${voteData.downvotes.size} (${downVoterNames})`
     );
   },
 };

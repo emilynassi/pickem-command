@@ -24,8 +24,6 @@ export async function fetchCurrentGameId(): Promise<number | null> {
       data = (await response.json()) as ScoreApiResponse;
     }
 
-    console.log(data);
-
     // Get all the data from the response which should look like the type of ScoreApiResponse
     const game = data.games.find(
       (game: Game) => game.awayTeam.id === 3 || game.homeTeam.id === 3

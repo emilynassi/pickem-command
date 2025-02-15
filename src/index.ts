@@ -6,11 +6,12 @@ import {
   MessageFlags,
   CommandInteraction,
   ButtonInteraction,
+  ModalSubmitInteraction,
 } from 'discord.js';
 import { config } from './config';
 import fs from 'node:fs';
 import path from 'node:path';
-import { handleButtonInteraction } from './commands/utility/vote';
+import voteCommand from './commands/utility/vote';
 
 interface ExtendedClient extends Client {
   commands: Collection<
@@ -95,7 +96,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   } else if (interaction.isButton()) {
     console.log(`Handling button interaction: ${interaction.customId}`);
     try {
-      await handleButtonInteraction(interaction);
+      await voteCommand.handleButtonInteraction(interaction);
     } catch (error) {
       console.error(
         `Error handling button interaction: ${interaction.customId}`,
@@ -112,6 +113,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
           flags: MessageFlags.Ephemeral,
         });
       }
+    }
+  } else if (interaction.isModalSubmit()) {
+    if (interaction.customId === 'showVotesModal') {
+      await interaction.reply({
+        content: 'Vote details shown above.',
+        flags: MessageFlags.Ephemeral,
+      });
     }
   }
 });
