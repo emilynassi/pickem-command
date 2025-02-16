@@ -121,8 +121,6 @@ interface GameOutcome {
   lastPeriodType: string;
 }
 
-//create a new class to hold the player stats for the rangers depending on if they were the home or away team. the rangers are team id 3
-
 export class RangersPlayerStats {
   forwards: PlayerStats[];
   defense: PlayerStats[];
