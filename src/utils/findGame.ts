@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { ScoreApiResponse, Game } from '../types/score';
+import { GameBoxScore } from '../types/boxscore';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -31,6 +32,30 @@ export async function fetchCurrentGameId(): Promise<number | null> {
     return game ? game.id : null;
   } catch (error) {
     console.error('Failed to fetch current game ID:', error);
+    return null;
+  }
+}
+
+//reusable function to fetch box score data
+export async function fetchBoxScore(gameId: number): Promise<any> {
+  try {
+    let data: GameBoxScore;
+
+    if (process.env.USE_MOCK_API === 'true') {
+      // Read the mock JSON file
+      const mockFilePath = path.join(__dirname, '../mocks/boxscore.json');
+      data = JSON.parse(fs.readFileSync(mockFilePath, 'utf-8'));
+    } else {
+      // Fetch data from the real API
+      const response = await fetch(
+        `https://api-web.nhle.com/v1/gamecenter/${gameId}/boxscore`
+      );
+      data = (await response.json()) as GameBoxScore;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Failed to fetch box score:', error);
     return null;
   }
 }
