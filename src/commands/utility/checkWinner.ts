@@ -11,7 +11,9 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { GameBoxScore } from '../../types/boxscore';
-import { RangersPlayerStats } from '../../types/boxscore'; // Import your class
+import { RangersPlayerStats } from '../../types/boxscore';
+import { parseTOI } from '../../utils/helpers';
+import { votePrompts } from './vote';
 
 dotenv.config();
 
@@ -24,14 +26,6 @@ export const data = new SlashCommandBuilder()
       .setDescription('Enter your TOI prediction')
       .setRequired(true)
   );
-
-function parseTOI(toi: string): number {
-  const parts = toi.split(':');
-  if (parts.length !== 2) return 0;
-  const minutes = parseInt(parts[0], 10);
-  const seconds = parseInt(parts[1], 10);
-  return minutes * 60 + seconds;
-}
 
 export async function execute(interaction: CommandInteraction) {
   // Retrieve the active vote message.
@@ -53,18 +47,26 @@ export async function execute(interaction: CommandInteraction) {
     return;
   }
 
-  // Extract the prompt TOI from the vote message.
-  const voteMessage = await interaction.channel.messages.fetch(messageId);
-  const firstLine = voteMessage.content.split('\n')[0].trim();
-  const match = firstLine.match(/vote:\s*(\S+)/i);
-  if (!match) {
+  // Extract the prompt TOI from the vote prompt.
+  const votePrompt = votePrompts.get(channelId);
+  if (!votePrompt) {
     await interaction.reply({
-      content: 'Could not extract the prompt TOI from the vote message.',
+      content: 'Original vote prompt not found.',
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
-  const promptTOI = match[1]; // e.g. "9:48"
+
+  // Now votePrompt is directly "9:48", so we can validate it with:
+  const match = votePrompt.match(/^(\d{1,2}:\d{2})$/);
+  if (!match) {
+    await interaction.reply({
+      content: 'The stored TOI is not in the correct format.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+  const promptTOI = match[1];
 
   // Fetch final game data.
   const gameId = await fetchCurrentGameId();
@@ -98,7 +100,7 @@ export async function execute(interaction: CommandInteraction) {
 
   let actualTOI = '';
   if (player73 && player73.toi) {
-    actualTOI = player73.toi; // e.g. "8:34"
+    actualTOI = player73.toi;
   }
 
   if (!actualTOI) {
@@ -147,7 +149,7 @@ export async function execute(interaction: CommandInteraction) {
   // Build embed with prompt TOI, actual TOI, and winners.
   const embed = new EmbedBuilder()
     .setTitle('Winners Announcement')
-    .setColor(0x00ff00) // Green border.
+    .setColor(0x00ff00)
     .addFields(
       { name: 'Prompt TOI', value: promptTOI, inline: true },
       { name: 'Actual TOI', value: actualTOI, inline: true },
