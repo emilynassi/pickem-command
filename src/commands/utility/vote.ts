@@ -22,7 +22,7 @@ export const votePrompts = new Map<string, string>();
 
 export const data = new SlashCommandBuilder()
   .setName('vote')
-  .setDescription('Vote on a TOI')
+  .setDescription('Vote on a TOI prediction.')
   .addStringOption((option) =>
     option.setName('toi').setDescription('Time on Ice').setRequired(true)
   );

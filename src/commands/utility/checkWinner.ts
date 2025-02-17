@@ -148,7 +148,7 @@ export async function execute(interaction: CommandInteraction) {
 
   // Build embed with prompt TOI, actual TOI, and winners.
   const embed = new EmbedBuilder()
-    .setTitle('Winners Announcement')
+    .setTitle('Game Over/Under TOI Results')
     .setColor(0x00ff00)
     .addFields(
       { name: 'Prompt TOI', value: promptTOI, inline: true },
