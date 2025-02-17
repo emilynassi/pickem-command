@@ -19,13 +19,7 @@ dotenv.config();
 
 export const data = new SlashCommandBuilder()
   .setName('checkwinner')
-  .setDescription('Announce winners for your over/under TOI prediction.')
-  .addStringOption((option) =>
-    option
-      .setName('toi')
-      .setDescription('Enter your TOI prediction')
-      .setRequired(true)
-  );
+  .setDescription('Announce winners for your over/under TOI prediction.');
 
 export async function execute(interaction: CommandInteraction) {
   // Retrieve the active vote message.
@@ -148,7 +142,7 @@ export async function execute(interaction: CommandInteraction) {
 
   // Build embed with prompt TOI, actual TOI, and winners.
   const embed = new EmbedBuilder()
-    .setTitle('Game Over/Under TOI Results')
+    .setTitle('🏒 Game Over/Under TOI Results 🏒')
     .setColor(0x00ff00)
     .addFields(
       { name: 'Prompt TOI', value: promptTOI, inline: true },
