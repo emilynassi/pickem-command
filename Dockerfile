@@ -10,8 +10,12 @@ COPY package*.json ./
 # Install all dependencies (including devDependencies, since ts-node is needed)
 RUN npm install
 
+
 # Copy the rest of the application
 COPY . .
+
+# Load commands
+RUN npm run commands
 
 # Expose any necessary ports (not needed for Discord bot, but for completeness)
 EXPOSE 3000
