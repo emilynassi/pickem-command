@@ -83,6 +83,24 @@ export async function execute(interaction: CommandInteraction) {
     boxData = (await res.json()) as GameBoxScore;
   }
 
+  //if the game is still live, return
+  if (boxData.gameState === 'LIVE') {
+    await interaction.reply({
+      content: 'The game is still live. Please try again later.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  //if the game state is in the future, return
+  if (boxData.gameState === 'FUTURE') {
+    await interaction.reply({
+      content: 'The game has not started yet. Please try again later.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   // Create a RangersPlayerStats instance.
   const rangerStats = new RangersPlayerStats(boxData);
 
