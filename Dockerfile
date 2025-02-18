@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 3000
 
 # Run the bot using ts-node directly
-CMD ["bash", "-c", "npm run commands && npm start"]
+CMD ["sh", "-c", "npm run commands && npm start"]
