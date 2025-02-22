@@ -141,10 +141,14 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
       });
     }
 
-    await interaction.reply({
-      content: 'Your vote has been recorded.',
-      flags: MessageFlags.Ephemeral,
-    });
+    // Acknowledge the button interaction without sending a new message.
+    await interaction.deferUpdate();
+
+    // Optionally, if you really want to send a follow-up message:
+    // await interaction.followUp({
+    //   content: 'Your vote has been recorded.',
+    //   flags: MessageFlags.Ephemeral,
+    // });
   } else if (interaction.customId === 'showVotes') {
     if (!voteData) return;
 
