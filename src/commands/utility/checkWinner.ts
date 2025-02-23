@@ -93,7 +93,7 @@ export async function execute(interaction: CommandInteraction) {
   }
 
   //if the game state is in the future, return
-  if (boxData.gameState === 'FUTURE') {
+  if (boxData.gameState === 'FUT') {
     await interaction.reply({
       content: 'The game has not started yet. Please try again later.',
       flags: MessageFlags.Ephemeral,

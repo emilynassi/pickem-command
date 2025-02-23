@@ -102,15 +102,29 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   ) {
     const userId = interaction.user.id;
     if (voteData) {
-      // Prevent multiple votes.
-      if (voteData.upvotes.has(userId) || voteData.downvotes.has(userId)) {
+      const alreadyUpvoted = voteData.upvotes.has(userId);
+      const alreadyDownvoted = voteData.downvotes.has(userId);
+
+      // If the user clicked the same vote, inform them.
+      if (
+        (interaction.customId === 'upvote' && alreadyUpvoted) ||
+        (interaction.customId === 'downvote' && alreadyDownvoted)
+      ) {
         await interaction.reply({
-          content: 'You have already voted!',
+          content: 'Your vote remains unchanged.',
           flags: MessageFlags.Ephemeral,
         });
         return;
       }
 
+      // If the user previously voted the opposite direction, remove it.
+      if (interaction.customId === 'upvote' && alreadyDownvoted) {
+        voteData.downvotes.delete(userId);
+      } else if (interaction.customId === 'downvote' && alreadyUpvoted) {
+        voteData.upvotes.delete(userId);
+      }
+
+      // Record the new vote.
       if (interaction.customId === 'upvote') {
         voteData.upvotes.add(userId);
       } else if (interaction.customId === 'downvote') {
@@ -119,9 +133,9 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
 
       if (!interaction.channel || !(interaction.channel instanceof TextChannel))
         return;
-      // Fetch the original message.
       const message = await interaction.channel.messages.fetch(messageId);
-      // Rebuild the embed with updated counts.
+
+      // Rebuild the embed with updated vote counts.
       let updatedEmbed: EmbedBuilder;
       if (message.embeds.length > 0) {
         updatedEmbed = EmbedBuilder.from(message.embeds[0]);
@@ -134,6 +148,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
         { name: '⬆️ Over', value: `${voteData.upvotes.size}`, inline: true },
         { name: '⬇️ Under', value: `${voteData.downvotes.size}`, inline: true }
       );
+
       // Update the message with the new embed.
       await message.edit({
         embeds: [updatedEmbed],

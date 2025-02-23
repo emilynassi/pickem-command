@@ -32,7 +32,11 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
     }
 
     // Check the condition to lock votes
-    if (data.gameState === 'LIVE' || data.gameState === 'OFF') {
+    if (
+      data.gameState === 'LIVE' ||
+      data.gameState === 'OFF' ||
+      data.gameState === 'FINAL'
+    ) {
       const messageId = voteMessages.get(channel.id);
       if (messageId) {
         const message = await channel.messages.fetch(messageId);
@@ -94,6 +98,7 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
     }
   } catch (error) {
     console.error('Failed to check API and lock votes:', error);
+    return true;
   }
   return false;
 }
