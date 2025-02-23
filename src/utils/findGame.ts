@@ -39,9 +39,8 @@ export async function fetchCurrentGameId(): Promise<number | null> {
 
     // Get all the data from the response which should look like the type of ScoreApiResponse
     const game = data.games.find(
-      (game: Game) => game.awayTeam.id === 24 || game.homeTeam.id === 24
+      (game: Game) => game.awayTeam.id === 3 || game.homeTeam.id === 3
     );
-    console.log(game?.id);
     return game ? game.id : null;
   } catch (error) {
     console.error('Failed to fetch current game ID:', error);
