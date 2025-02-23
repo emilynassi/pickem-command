@@ -7,7 +7,6 @@ import {
   ButtonInteraction,
   CommandInteractionOptionResolver,
   MessageFlags,
-  TextChannel,
   EmbedBuilder,
 } from 'discord.js';
 import { voteMessages } from '../../utils/votedMessages';
@@ -131,8 +130,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
         voteData.downvotes.add(userId);
       }
 
-      if (!interaction.channel || !(interaction.channel instanceof TextChannel))
-        return;
+      if (!interaction.channel || !('messages' in interaction.channel)) return;
       const message = await interaction.channel.messages.fetch(messageId);
 
       // Rebuild the embed with updated vote counts.
