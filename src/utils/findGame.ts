@@ -17,8 +17,6 @@ const formatDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-console.log('Today:', formatDate(today));
-
 const SCORE_API_URL = `https://api-web.nhle.com/v1/score/${formatDate(today)}`;
 
 // Function to fetch the current game ID to pass to the boxscore API
