@@ -14,6 +14,7 @@ import { checkApiAndLockVotes } from '../../utils/lockVotes';
 import { fetchCurrentGameId } from '../../utils/findGame';
 
 let currentGameId: number | null = null;
+let lastGameDay: string | null = null;
 
 export const votes = new Map<
   string,
@@ -32,6 +33,7 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction: CommandInteraction) {
   // Return if no game is found.
   const gameId = await fetchCurrentGameId();
+  console.log('Current game ID:', gameId);
   if (!gameId) {
     await interaction.reply({
       content: 'No game found today.',
@@ -41,18 +43,20 @@ export async function execute(interaction: CommandInteraction) {
   }
 
   // Check if this vote is for a new game.
-  if (currentGameId !== gameId) {
-    // Clear stored state for all channels
+  // Use the current date in ISO format (YYYY-MM-DD)
+  const today = new Date().toISOString().split('T')[0];
+
+  // If the game id or the date has changed, clear all stored state.
+  if (currentGameId !== gameId || lastGameDay !== today) {
     votePrompts.clear();
     voteMessages.clear();
     votes.clear();
-    // Also clear any active intervals:
     voteIntervals.forEach((intervalId) => clearInterval(intervalId));
     voteIntervals.clear();
 
-    // Update our cached gameId.
     currentGameId = gameId;
-    console.log('New game detected, cleared previous vote states.');
+    lastGameDay = today;
+    console.log('New game or day detected. Cleared previous vote states.');
   }
 
   const options = interaction.options as CommandInteractionOptionResolver;
