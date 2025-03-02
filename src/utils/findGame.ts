@@ -7,23 +7,21 @@ import { GameBoxScore } from '../types/boxscore';
 // Load environment variables from .env file
 dotenv.config();
 
-//get today's date in YYYY-MM-DD format
-const today = new Date();
-const year = today.getFullYear();
-const month = String(today.getMonth() + 1).padStart(2, '0');
-
-const formatDate = (date: Date) => {
-  const day = String(date.getDate()).padStart(2, '0');
+const getToday = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-
-console.log('Today:', formatDate(today));
-
-const SCORE_API_URL = `https://api-web.nhle.com/v1/score/${formatDate(today)}`;
 
 // Function to fetch the current game ID to pass to the boxscore API
 // We know the Rangers ID is 3, so we can hardcode it for now
 export async function fetchCurrentGameId(): Promise<number | null> {
+  const today = getToday();
+  const SCORE_API_URL = `https://api-web.nhle.com/v1/score/${today}`;
+  console.log('Fetching game data from:', SCORE_API_URL);
+
   try {
     let data: ScoreApiResponse;
 
