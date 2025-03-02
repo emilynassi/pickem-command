@@ -13,12 +13,14 @@ import { voteMessages } from '../../utils/votedMessages';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
 import { fetchCurrentGameId } from '../../utils/findGame';
 
+let currentGameId: number | null = null;
+
 export const votes = new Map<
   string,
   { upvotes: Set<string>; downvotes: Set<string> }
 >();
-
 export const votePrompts = new Map<string, string>();
+export const voteIntervals = new Map<string, NodeJS.Timeout>();
 
 export const data = new SlashCommandBuilder()
   .setName('vote')
@@ -36,6 +38,21 @@ export async function execute(interaction: CommandInteraction) {
       flags: MessageFlags.Ephemeral,
     });
     return;
+  }
+
+  // Check if this vote is for a new game.
+  if (currentGameId !== gameId) {
+    // Clear stored state for all channels
+    votePrompts.clear();
+    voteMessages.clear();
+    votes.clear();
+    // Also clear any active intervals:
+    voteIntervals.forEach((intervalId) => clearInterval(intervalId));
+    voteIntervals.clear();
+
+    // Update our cached gameId.
+    currentGameId = gameId;
+    console.log('New game detected, cleared previous vote states.');
   }
 
   const options = interaction.options as CommandInteractionOptionResolver;
