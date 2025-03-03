@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { EmbedBuilder } from 'discord.js';
+import { votePrompts } from '../commands/utility/vote';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -68,10 +69,12 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
           downvoters = downvoterNames.join(', ') || 'None';
         }
 
+        const promptTOI = votePrompts.get(channel.id) || 'N/A';
+
         // Build a formatted embed with a border color.
         const embed = new EmbedBuilder()
           .setTitle('Voting Closed')
-          .setDescription('Voting is now closed because the game is live.')
+          .setDescription(`Vote closed for predicted TOI: **${promptTOI}**`)
           .setColor(0x0038a8)
           .addFields(
             { name: 'Over', value: upvoters, inline: true },
