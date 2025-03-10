@@ -8,11 +8,14 @@ import { GameBoxScore } from '../types/boxscore';
 dotenv.config();
 
 const getToday = (): string => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'America/Los_Angeles',
+  };
+  // Using 'en-CA' locale returns the date in YYYY-MM-DD format.
+  return new Intl.DateTimeFormat('en-CA', options).format(new Date());
 };
 
 // Function to fetch the current game ID to pass to the boxscore API
