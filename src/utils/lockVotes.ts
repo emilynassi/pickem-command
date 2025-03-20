@@ -1,6 +1,6 @@
 import { voteMessages } from '../utils/votedMessages';
 import { votes } from '../commands/utility/vote';
-import { GameBoxScore } from '../types/boxscore';
+import { GameBoxScore, RangersPlayerStats } from '../types/boxscore';
 import { fetchCurrentGameId } from './findGame';
 import fs from 'fs';
 import path from 'path';
@@ -71,30 +71,66 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
 
         const promptTOI = votePrompts.get(channel.id) || 'N/A';
 
-        // Build a formatted embed with a border color.
-        const embed = new EmbedBuilder()
-          .setTitle('Voting Closed')
-          .setDescription(`Vote closed for predicted TOI: **${promptTOI}**`)
-          .setColor(0x0038a8)
-          .addFields(
-            { name: 'Over', value: upvoters, inline: true },
-            { name: 'Under', value: downvoters, inline: true }
-          )
-          .setFooter({
-            text: `Final Vote Count: ${voteData?.upvotes.size ?? 'N/A'} Over, ${
-              voteData?.downvotes.size ?? 'N/A'
-            } Under`,
-          })
-          .setTimestamp();
+        // Create Rangers player stats instance to check if player #73 is in the lineup
+        const rangerStats = new RangersPlayerStats(data);
 
-        // Update the original message with the embed and remove buttons.
-        await message.edit({
-          content: 'Voting Closed',
-          embeds: [embed],
-          components: [],
-        });
+        // Look for player #73 across all position groups
+        const player73 =
+          rangerStats.forwards.find(p => p.sweaterNumber === 73) ||
+          rangerStats.defense.find(p => p.sweaterNumber === 73) ||
+          rangerStats.goalies.find(p => p.sweaterNumber === 73);
 
-        // Optionally, send the embed as a new message in the channel.
+        let embed: EmbedBuilder;
+
+        // If player is not in lineup, create a cancellation embed
+        if (!player73) {
+          embed = new EmbedBuilder()
+            .setTitle('Voting Canceled')
+            .setDescription(`Vote for predicted TOI: **${promptTOI}** has been canceled because Matt Rempe is not playing today.`)
+            .setColor(0xFF0000)
+            .addFields(
+              { name: 'Over votes', value: upvoters, inline: true },
+              { name: 'Under votes', value: downvoters, inline: true }
+            )
+            .setFooter({
+              text: `Final Vote Count: ${voteData?.upvotes.size ?? 'N/A'} Over, ${
+                voteData?.downvotes.size ?? 'N/A'
+              } Under`,
+            })
+            .setTimestamp();
+
+          // Update the original message
+          await message.edit({
+            content: 'Vote Canceled - Player Not in Lineup',
+            embeds: [embed],
+            components: [],
+          });
+        } else {
+          // Player is in lineup, proceed with regular vote closing
+          embed = new EmbedBuilder()
+            .setTitle('Voting Closed')
+            .setDescription(`Vote closed for predicted TOI: **${promptTOI}**`)
+            .setColor(0x0038a8)
+            .addFields(
+              { name: 'Over', value: upvoters, inline: true },
+              { name: 'Under', value: downvoters, inline: true }
+            )
+            .setFooter({
+              text: `Final Vote Count: ${voteData?.upvotes.size ?? 'N/A'} Over, ${
+                voteData?.downvotes.size ?? 'N/A'
+              } Under`,
+            })
+            .setTimestamp();
+
+          // Update the original message
+          await message.edit({
+            content: 'Voting Closed',
+            embeds: [embed],
+            components: [],
+          });
+        }
+
+        // Send the embed as a new message in the channel
         await channel.send({ embeds: [embed] });
         return true;
       }
