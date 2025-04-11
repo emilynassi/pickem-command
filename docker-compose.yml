@@ -45,8 +45,3 @@ services:
       com.datadoghq.tags.env: '${DD_ENV-dev}'
       com.datadoghq.tags.service: '${PICKEM_COMMAND_SERVICE-pickem-command}'
       com.datadoghq.tags.version: '${PICKEM_COMMAND_VERSION-1.0.0}'
-    logging:
-      driver: 'json-file'
-      options:
-        max-size: '10m'
-        max-file: '3'
