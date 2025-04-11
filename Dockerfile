@@ -16,5 +16,8 @@ COPY . .
 # Expose any necessary ports (not needed for Discord bot, but for completeness)
 EXPOSE 3000
 
+# Set environment variables for Datadog
+ENV NODE_OPTIONS="-r dd-trace/init"
+
 # Run the bot using ts-node directly
 CMD ["sh", "-c", "npm run commands && npm start"]

@@ -1,11 +1,50 @@
 services:
+  dd-agent:
+    container_name: dd-agent
+    image: gcr.io/datadoghq/agent:7
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_SITE=${DD_SITE-datadoghq.com}
+      - DD_ENV=${DD_ENV-production}
+      - DD_APM_ENABLED=${DD_APM_ENABLED-true}
+      - DD_APM_NON_LOCAL_TRAFFIC=${DD_APM_NON_LOCAL_TRAFFIC-true}
+      - DD_APM_RECEIVER_SOCKET=/var/run/datadog/apm.socket
+      - DD_LOGS_ENABLED=${DD_LOGS_ENABLED-true}
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=${DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL-true}
+    volumes:
+      - /var/run/datadog:/var/run/datadog
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    ports:
+      - '8126:8126/tcp'
+      - '8125:8125/udp'
+
   discord-bot:
     container_name: pickem-command
     build: .
     restart: always
-    env_file: .env
+    depends_on:
+      - dd-agent
     ports:
       - '3000:3000'
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      - GUILD_ID=${GUILD_ID}
+      - PICKEM_COMMAND_VERSION=${PICKEM_COMMAND_VERSION-1.0.0}
+      - PICKEM_COMMAND_SERVICE=${PICKEM_COMMAND_SERVICE-pickem-command}
+      - DD_ENV=${DD_ENV-dev}
+      - DD_AGENT_HOST=dd-agent
+      - DD_LOGS_INJECTION=true
+      - DD_RUNTIME_METRICS_ENABLED=true
+      - DD_PROFILING_ENABLED=true
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "nodejs", "service": "${PICKEM_COMMAND_SERVICE-pickem-command}", "auto_multi_line_detection":true }]'
+      com.datadoghq.tags.env: '${DD_ENV-dev}'
+      com.datadoghq.tags.service: '${PICKEM_COMMAND_SERVICE-pickem-command}'
+      com.datadoghq.tags.version: '${PICKEM_COMMAND_VERSION-1.0.0}'
     logging:
       driver: 'json-file'
       options:
