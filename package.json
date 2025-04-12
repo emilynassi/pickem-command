@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "start": "NODE_OPTIONS='-r dd-trace/init' ts-node src/index.ts",
     "commands": "ts-node src/deploy-commands.ts",
     "lint": "eslint . --fix",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -13,8 +13,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dd-trace": "^5.47.0",
     "discord.js": "^14.17.3",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
