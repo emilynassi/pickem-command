@@ -12,6 +12,7 @@ import {
 import { voteMessages } from '../../utils/votedMessages';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
 import { fetchCurrentGameId } from '../../utils/findGame';
+import { prisma } from '../../lib/prisma';
 
 export const votes = new Map<
   string,
@@ -80,6 +81,27 @@ export async function execute(interaction: CommandInteraction) {
   console.log(votePrompts);
   votes.set(message.id, { upvotes: new Set(), downvotes: new Set() });
 
+  // Save prompt to database
+  try {
+    await prisma.prompt.create({
+      data: {
+        promptId: message.id,
+        guildId: interaction.guildId || '',
+        promptType: 'player_toi',
+        promptText: prompt,
+        metadata: {
+          gameId: gameId,
+          channelId: interaction.channelId,
+        },
+        gameDate: new Date(),
+        gameId: gameId,
+        createdBy: interaction.user.id,
+      },
+    });
+  } catch (error) {
+    console.error('Error saving prompt to database:', error);
+  }
+
   // Periodically check the API to lock votes.
   const intervalId = setInterval(async () => {
     const locked = await checkApiAndLockVotes(interaction.channel);
@@ -128,6 +150,35 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
         voteData.upvotes.add(userId);
       } else if (interaction.customId === 'downvote') {
         voteData.downvotes.add(userId);
+      }
+
+      // Save vote to database
+      try {
+        const promptRecord = await prisma.prompt.findUnique({
+          where: { promptId: messageId },
+        });
+
+        if (promptRecord) {
+          await prisma.vote.upsert({
+            where: {
+              promptId_userId: {
+                promptId: promptRecord.id,
+                userId: userId,
+              },
+            },
+            update: {
+              voteChoice: interaction.customId === 'upvote' ? 'over' : 'under',
+              votedAt: new Date(),
+            },
+            create: {
+              promptId: promptRecord.id,
+              userId: userId,
+              voteChoice: interaction.customId === 'upvote' ? 'over' : 'under',
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error saving vote to database:', error);
       }
 
       if (!interaction.channel || !('messages' in interaction.channel)) return;

@@ -5,8 +5,6 @@ import {
   Collection,
   MessageFlags,
   CommandInteraction,
-  ButtonInteraction,
-  ModalSubmitInteraction,
 } from 'discord.js';
 import { config } from './config';
 import fs from 'node:fs';
@@ -43,6 +41,7 @@ for (const folder of commandFolders) {
     .filter((file) => file.endsWith('.ts'));
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const command = require(filePath);
     // Set a new item in the Collection with the key as the command name and the value as the exported module
     if ('data' in command && 'execute' in command) {

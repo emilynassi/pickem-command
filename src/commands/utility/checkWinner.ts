@@ -14,6 +14,7 @@ import { GameBoxScore } from '../../types/boxscore';
 import { RangersPlayerStats } from '../../types/boxscore';
 import { parseTOI } from '../../utils/helpers';
 import { votePrompts } from './vote';
+import { prisma } from '../../lib/prisma';
 
 dotenv.config();
 
@@ -127,21 +128,25 @@ export async function execute(interaction: CommandInteraction) {
   const promptSeconds = parseTOI(promptTOI);
   const actualSeconds = parseTOI(actualTOI);
   let winningSet: Set<string> | undefined;
+  let winningChoice: string = '';
 
   if (promptSeconds === actualSeconds) {
     winningSet = undefined;
+    winningChoice = 'push';
   } else if (actualSeconds < promptSeconds) {
     // Under wins -> "downvotes" represent Under prediction.
     const voteData = votes.get(messageId);
     if (voteData) {
       winningSet = voteData.downvotes;
     }
+    winningChoice = 'under';
   } else {
     // Over wins -> "upvotes" represent Over prediction.
     const voteData = votes.get(messageId);
     if (voteData) {
       winningSet = voteData.upvotes;
     }
+    winningChoice = 'over';
   }
 
   let winnerNames: string[] = [];
@@ -173,6 +178,52 @@ export async function execute(interaction: CommandInteraction) {
     .setTimestamp();
 
   await interaction.reply({ embeds: [embed] });
+
+  // Save results and winners to database
+  try {
+    const promptRecord = await prisma.prompt.findUnique({
+      where: { promptId: messageId },
+    });
+
+    if (promptRecord) {
+      // Save the result
+      await prisma.result.create({
+        data: {
+          promptId: promptRecord.id,
+          resultData: {
+            promptTOI: promptTOI,
+            actualTOI: actualTOI,
+            promptSeconds: promptSeconds,
+            actualSeconds: actualSeconds,
+            playerName: player73?.name?.default || 'Unknown',
+            playerNumber: player73?.sweaterNumber || 73,
+            playerTOI: player73?.toi || actualTOI,
+          },
+          winningChoice: winningChoice,
+        },
+      });
+
+      // Save winners
+      if (winningSet && winningSet.size > 0) {
+        const winnerRecords = Array.from(winningSet).map((userId) => ({
+          promptId: promptRecord.id,
+          userId: userId,
+        }));
+
+        await prisma.winner.createMany({
+          data: winnerRecords,
+        });
+      }
+
+      // Update prompt as locked
+      await prisma.prompt.update({
+        where: { id: promptRecord.id },
+        data: { lockedAt: new Date() },
+      });
+    }
+  } catch (error) {
+    console.error('Error saving results to database:', error);
+  }
 }
 
 export default {
