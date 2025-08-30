@@ -15,6 +15,7 @@ import { RangersPlayerStats } from '../../types/boxscore';
 import { parseTOI } from '../../utils/helpers';
 import { votePrompts } from './vote';
 import { prisma } from '../../lib/prisma';
+import { getCurrentEnvironment } from '../../utils/environment';
 
 dotenv.config();
 
@@ -180,6 +181,7 @@ export async function execute(interaction: CommandInteraction) {
   await interaction.reply({ embeds: [embed] });
 
   // Save results and winners to database
+  const environment = getCurrentEnvironment();
   try {
     const promptRecord = await prisma.prompt.findUnique({
       where: { promptId: messageId },
@@ -202,6 +204,7 @@ export async function execute(interaction: CommandInteraction) {
           winningChoice: winningChoice,
         },
       });
+      console.log(`✅ [${environment.toUpperCase()}] Results saved: ${actualTOI} (${winningChoice} wins)`);
 
       // Save winners
       if (winningSet && winningSet.size > 0) {
@@ -213,6 +216,7 @@ export async function execute(interaction: CommandInteraction) {
         await prisma.winner.createMany({
           data: winnerRecords,
         });
+        console.log(`✅ [${environment.toUpperCase()}] Winners saved: ${winnerNames.join(', ')}`);
       }
 
       // Update prompt as locked
@@ -222,7 +226,7 @@ export async function execute(interaction: CommandInteraction) {
       });
     }
   } catch (error) {
-    console.error('Error saving results to database:', error);
+    console.error(`❌ [${environment.toUpperCase()}] Error saving results to database:`, error);
   }
 }
 

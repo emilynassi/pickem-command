@@ -13,6 +13,7 @@ import { voteMessages } from '../../utils/votedMessages';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
 import { fetchCurrentGameId } from '../../utils/findGame';
 import { prisma } from '../../lib/prisma';
+import { getCurrentEnvironment } from '../../utils/environment';
 
 export const votes = new Map<
   string,
@@ -82,24 +83,27 @@ export async function execute(interaction: CommandInteraction) {
   votes.set(message.id, { upvotes: new Set(), downvotes: new Set() });
 
   // Save prompt to database
+  const environment = getCurrentEnvironment();
   try {
     await prisma.prompt.create({
       data: {
         promptId: message.id,
         guildId: interaction.guildId || '',
+        environment: environment,
         promptType: 'player_toi',
         promptText: prompt,
         metadata: {
-          gameId: gameId,
+          gameId: gameId.toString(),
           channelId: interaction.channelId,
         },
         gameDate: new Date(),
-        gameId: gameId,
+        gameId: gameId.toString(),
         createdBy: interaction.user.id,
       },
     });
+    console.log(`✅ [${environment.toUpperCase()}] Prompt saved to database: ${prompt}`);
   } catch (error) {
-    console.error('Error saving prompt to database:', error);
+    console.error(`❌ [${environment.toUpperCase()}] Error saving prompt to database:`, error);
   }
 
   // Periodically check the API to lock votes.
@@ -153,12 +157,14 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
       }
 
       // Save vote to database
+      const environment = getCurrentEnvironment();
       try {
         const promptRecord = await prisma.prompt.findUnique({
           where: { promptId: messageId },
         });
 
         if (promptRecord) {
+          const voteChoice = interaction.customId === 'upvote' ? 'over' : 'under';
           await prisma.vote.upsert({
             where: {
               promptId_userId: {
@@ -167,18 +173,19 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
               },
             },
             update: {
-              voteChoice: interaction.customId === 'upvote' ? 'over' : 'under',
+              voteChoice: voteChoice,
               votedAt: new Date(),
             },
             create: {
               promptId: promptRecord.id,
               userId: userId,
-              voteChoice: interaction.customId === 'upvote' ? 'over' : 'under',
+              voteChoice: voteChoice,
             },
           });
+          console.log(`✅ [${environment.toUpperCase()}] Vote saved: ${interaction.user.username} voted ${voteChoice}`);
         }
       } catch (error) {
-        console.error('Error saving vote to database:', error);
+        console.error(`❌ [${environment.toUpperCase()}] Error saving vote to database:`, error);
       }
 
       if (!interaction.channel || !('messages' in interaction.channel)) return;

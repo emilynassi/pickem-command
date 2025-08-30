@@ -18,6 +18,7 @@ model Prompt {
   id          String   @id @default(uuid())
   promptId    String   @unique // Discord message ID
   guildId     String   // Discord server ID
+  environment String   @default("production") // "test", "development", "production"
   promptType  String   // "player_toi", "player_points", "team_goals", etc.
   promptText  String   // Full text shown to users
   metadata    Json     // Flexible data: player_name, threshold, teams, etc.
@@ -32,6 +33,7 @@ model Prompt {
   winners     Winner[]
   
   @@index([guildId]) // For quick guild lookups
+  @@index([environment]) // For filtering by environment
 }
 
 model Vote {

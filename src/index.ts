@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import voteCommand from './commands/utility/vote';
 import logger from './utils/logger';
+import { logEnvironment } from './utils/environment';
 
 interface ExtendedClient extends Client {
   commands: Collection<
@@ -57,6 +58,7 @@ for (const folder of commandFolders) {
 
 client.once(Events.ClientReady, (readyClient: { user: { tag: any } }) => {
   logger.info(`Ready! Logged in as ${readyClient.user.tag}`);
+  logEnvironment();
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
