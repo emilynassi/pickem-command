@@ -1,5 +1,8 @@
 # Use a lightweight Node.js image
-FROM node:18-alpine
+FROM node:22-alpine
+
+# Install PostgreSQL client for health checks
+RUN apk add --no-cache postgresql-client
 
 # Set working directory
 WORKDIR /app
@@ -10,6 +13,10 @@ COPY package*.json ./
 # Install all dependencies (including devDependencies, since ts-node is needed)
 RUN npm install
 
+# Copy and make entrypoint script executable (before copying the rest)
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Copy the rest of the application
 COPY . .
 
@@ -19,5 +26,5 @@ EXPOSE 3000
 # Set environment variables for Datadog
 ENV NODE_OPTIONS="-r dd-trace/init"
 
-# Run the bot using ts-node directly
-CMD ["sh", "-c", "npm run commands && npm start"]
+# Use entrypoint script
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -19,7 +19,6 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     ports:
       - '8126:8126/tcp'
-      - '8125:8125/udp'
 
   discord-bot:
     container_name: pickem-command
