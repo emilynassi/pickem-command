@@ -5,14 +5,13 @@ import {
   Collection,
   MessageFlags,
   CommandInteraction,
-  ButtonInteraction,
-  ModalSubmitInteraction,
 } from 'discord.js';
 import { config } from './config';
 import fs from 'node:fs';
 import path from 'node:path';
 import voteCommand from './commands/utility/vote';
 import logger from './utils/logger';
+import { logEnvironment } from './utils/environment';
 
 interface ExtendedClient extends Client {
   commands: Collection<
@@ -43,6 +42,7 @@ for (const folder of commandFolders) {
     .filter((file) => file.endsWith('.ts'));
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const command = require(filePath);
     // Set a new item in the Collection with the key as the command name and the value as the exported module
     if ('data' in command && 'execute' in command) {
@@ -58,6 +58,7 @@ for (const folder of commandFolders) {
 
 client.once(Events.ClientReady, (readyClient: { user: { tag: any } }) => {
   logger.info(`Ready! Logged in as ${readyClient.user.tag}`);
+  logEnvironment();
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

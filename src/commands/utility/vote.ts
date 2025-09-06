@@ -11,7 +11,9 @@ import {
 } from 'discord.js';
 import { voteMessages } from '../../utils/votedMessages';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
-import { fetchCurrentGameId } from '../../utils/findGame';
+import { fetchCurrentGameDetails } from '../../utils/findGame';
+import { prisma } from '../../lib/prisma';
+import { getCurrentEnvironment } from '../../utils/environment';
 
 export const votes = new Map<
   string,
@@ -29,8 +31,8 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: CommandInteraction) {
   // Return if no game is found.
-  const gameId = await fetchCurrentGameId();
-  if (!gameId) {
+  const gameDetails = await fetchCurrentGameDetails();
+  if (!gameDetails) {
     await interaction.reply({
       content: 'No game found today.',
       flags: MessageFlags.Ephemeral,
@@ -80,6 +82,32 @@ export async function execute(interaction: CommandInteraction) {
   console.log(votePrompts);
   votes.set(message.id, { upvotes: new Set(), downvotes: new Set() });
 
+  // Save prompt to database
+  const environment = getCurrentEnvironment();
+  try {
+    await prisma.prompt.create({
+      data: {
+        promptId: message.id,
+        guildId: interaction.guildId || '',
+        environment: environment,
+        promptType: 'player_toi',
+        promptText: prompt,
+        metadata: {
+          gameId: gameDetails.id.toString(),
+          channelId: interaction.channelId,
+        },
+        gameDate: new Date(),
+        gameId: gameDetails.id.toString(),
+        season: gameDetails.season,
+        gameType: gameDetails.gameType,
+        createdBy: interaction.user.id,
+      },
+    });
+    console.log(`✅ [${environment.toUpperCase()}] Prompt saved to database: ${prompt} (Season: ${gameDetails.season}, GameType: ${gameDetails.gameType})`);
+  } catch (error) {
+    console.error(`❌ [${environment.toUpperCase()}] Error saving prompt to database:`, error);
+  }
+
   // Periodically check the API to lock votes.
   const intervalId = setInterval(async () => {
     const locked = await checkApiAndLockVotes(interaction.channel);
@@ -128,6 +156,38 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
         voteData.upvotes.add(userId);
       } else if (interaction.customId === 'downvote') {
         voteData.downvotes.add(userId);
+      }
+
+      // Save vote to database
+      const environment = getCurrentEnvironment();
+      try {
+        const promptRecord = await prisma.prompt.findUnique({
+          where: { promptId: messageId },
+        });
+
+        if (promptRecord) {
+          const voteChoice = interaction.customId === 'upvote' ? 'over' : 'under';
+          await prisma.vote.upsert({
+            where: {
+              promptId_userId: {
+                promptId: promptRecord.id,
+                userId: userId,
+              },
+            },
+            update: {
+              voteChoice: voteChoice,
+              votedAt: new Date(),
+            },
+            create: {
+              promptId: promptRecord.id,
+              userId: userId,
+              voteChoice: voteChoice,
+            },
+          });
+          console.log(`✅ [${environment.toUpperCase()}] Vote saved: ${interaction.user.username} voted ${voteChoice}`);
+        }
+      } catch (error) {
+        console.error(`❌ [${environment.toUpperCase()}] Error saving vote to database:`, error);
       }
 
       if (!interaction.channel || !('messages' in interaction.channel)) return;
