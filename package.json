@@ -5,6 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "NODE_OPTIONS='-r dd-trace/init' ts-node src/index.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:setup": "npm run prisma:generate && npm run prisma:migrate",
     "commands": "ts-node src/deploy-commands.ts",
     "lint": "eslint . --fix",
     "test": "echo \"Error: no test specified\" && exit 1"
