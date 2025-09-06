@@ -11,7 +11,7 @@ import {
 } from 'discord.js';
 import { voteMessages } from '../../utils/votedMessages';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
-import { fetchCurrentGameId } from '../../utils/findGame';
+import { fetchCurrentGameDetails } from '../../utils/findGame';
 import { prisma } from '../../lib/prisma';
 import { getCurrentEnvironment } from '../../utils/environment';
 
@@ -31,8 +31,8 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: CommandInteraction) {
   // Return if no game is found.
-  const gameId = await fetchCurrentGameId();
-  if (!gameId) {
+  const gameDetails = await fetchCurrentGameDetails();
+  if (!gameDetails) {
     await interaction.reply({
       content: 'No game found today.',
       flags: MessageFlags.Ephemeral,
@@ -93,15 +93,17 @@ export async function execute(interaction: CommandInteraction) {
         promptType: 'player_toi',
         promptText: prompt,
         metadata: {
-          gameId: gameId.toString(),
+          gameId: gameDetails.id.toString(),
           channelId: interaction.channelId,
         },
         gameDate: new Date(),
-        gameId: gameId.toString(),
+        gameId: gameDetails.id.toString(),
+        season: gameDetails.season,
+        gameType: gameDetails.gameType,
         createdBy: interaction.user.id,
       },
     });
-    console.log(`✅ [${environment.toUpperCase()}] Prompt saved to database: ${prompt}`);
+    console.log(`✅ [${environment.toUpperCase()}] Prompt saved to database: ${prompt} (Season: ${gameDetails.season}, GameType: ${gameDetails.gameType})`);
   } catch (error) {
     console.error(`❌ [${environment.toUpperCase()}] Error saving prompt to database:`, error);
   }
