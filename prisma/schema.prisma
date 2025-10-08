@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider      = "prisma-client-js"
+  output        = "../src/generated/prisma"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -11,23 +12,23 @@ datasource db {
 model Prompt {
   id          String    @id @default(uuid())
   promptId    String    @unique // Discord message ID
-  guildId     String    // Discord server ID
+  guildId     String // Discord server ID
   environment String    @default("production") // "test", "development", "production"
-  promptType  String    // "player_toi", "player_points", "team_goals", etc.
-  promptText  String    // Full text shown to users
-  metadata    Json      // Flexible data: player_name, threshold, teams, etc.
+  promptType  String // "player_toi", "player_points", "team_goals", etc.
+  promptText  String // Full text shown to users
+  metadata    Json // Flexible data: player_name, threshold, teams, etc.
   gameDate    DateTime
-  gameId      String?   // NHL API game ID
-  season      Int?      // NHL season ID (e.g., 20242025)
-  gameType    Int?      // 1 = preseason, 2 = regular season, 3 = playoffs
+  gameId      String? // NHL API game ID
+  season      Int? // NHL season ID (e.g., 20242025)
+  gameType    Int? // 1 = preseason, 2 = regular season, 3 = playoffs
   createdAt   DateTime  @default(now())
-  createdBy   String    // Discord user ID
+  createdBy   String // Discord user ID
   lockedAt    DateTime?
-  
-  votes       Vote[]
-  results     Result?
-  winners     Winner[]
-  
+
+  votes   Vote[]
+  results Result?
+  winners Winner[]
+
   @@index([guildId]) // For quick guild lookups
   @@index([environment]) // For filtering by environment
   @@index([season]) // For season lookups
@@ -37,32 +38,32 @@ model Prompt {
 model Vote {
   id         String   @id @default(uuid())
   promptId   String
-  userId     String   // Discord user ID
-  voteChoice String   // "over", "under", "team_a", "team_b", etc.
+  userId     String // Discord user ID
+  voteChoice String // "over", "under", "team_a", "team_b", etc.
   votedAt    DateTime @default(now())
-  
-  prompt     Prompt   @relation(fields: [promptId], references: [id])
-  
+
+  prompt Prompt @relation(fields: [promptId], references: [id])
+
   @@unique([promptId, userId]) // One vote per user per prompt
 }
 
 model Result {
   id            String   @id @default(uuid())
   promptId      String   @unique
-  resultData    Json     // Actual values, winning team, etc.
-  winningChoice String   // matches vote_choice options
+  resultData    Json // Actual values, winning team, etc.
+  winningChoice String // matches vote_choice options
   processedAt   DateTime @default(now())
-  
-  prompt        Prompt   @relation(fields: [promptId], references: [id])
+
+  prompt Prompt @relation(fields: [promptId], references: [id])
 }
 
 model Winner {
   id       String   @id @default(uuid())
   promptId String
-  userId   String   // Discord user ID
+  userId   String // Discord user ID
   wonAt    DateTime @default(now())
-  
-  prompt   Prompt   @relation(fields: [promptId], references: [id])
-  
+
+  prompt Prompt @relation(fields: [promptId], references: [id])
+
   @@index([userId]) // For quick user winner lookups
 }
