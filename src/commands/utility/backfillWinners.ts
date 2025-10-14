@@ -29,6 +29,14 @@ export const data = new SlashCommandBuilder()
       .setName('actual_toi')
       .setDescription('The actual TOI from the game (e.g., 10:15)')
       .setRequired(true)
+  )
+  .addStringOption((option) =>
+    option
+      .setName('manual_winners')
+      .setDescription(
+        'Optional: Comma-separated usernames of winners (e.g., user1,user2). If omitted, calculates from database.'
+      )
+      .setRequired(false)
   );
 
 export async function execute(interaction: CommandInteraction) {
@@ -36,6 +44,7 @@ export async function execute(interaction: CommandInteraction) {
   const dateStr = options.getString('date') || '';
   const promptTOI = options.getString('prompt_toi') || '';
   const actualTOI = options.getString('actual_toi') || '';
+  const manualWinners = options.getString('manual_winners');
 
   // Validate date format
   const dateMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -122,20 +131,81 @@ export async function execute(interaction: CommandInteraction) {
     let winningChoice: string = '';
     let winningVoters: string[] = [];
 
+    // Determine winning choice based on TOI comparison
     if (promptSeconds === actualSeconds) {
       winningChoice = 'push';
     } else if (actualSeconds < promptSeconds) {
-      // Under wins
       winningChoice = 'under';
-      winningVoters = prompt.votes
-        .filter((v: { voteChoice: string }) => v.voteChoice === 'under')
-        .map((v: { userId: any }) => v.userId);
     } else {
-      // Over wins
       winningChoice = 'over';
-      winningVoters = prompt.votes
-        .filter((v: { voteChoice: string }) => v.voteChoice === 'over')
-        .map((v: { userId: any }) => v.userId);
+    }
+
+    // Handle manual winners if provided
+    if (manualWinners) {
+      const winnerUsernames = manualWinners
+        .split(',')
+        .map((u) => u.trim())
+        .filter((u) => u.length > 0);
+
+      if (winnerUsernames.length > 0) {
+        // Convert usernames to userIds
+        const userIds: string[] = [];
+        const notFoundUsernames: string[] = [];
+
+        for (const username of winnerUsernames) {
+          try {
+            // Try to find the user in the guild members
+            const guild = interaction.guild;
+            if (guild) {
+              const members = await guild.members.fetch();
+              const member = members.find(
+                (m) =>
+                  m.user.username.toLowerCase() === username.toLowerCase() ||
+                  m.user.tag.toLowerCase() === username.toLowerCase()
+              );
+
+              if (member) {
+                userIds.push(member.user.id);
+              } else {
+                notFoundUsernames.push(username);
+              }
+            } else {
+              notFoundUsernames.push(username);
+            }
+          } catch (error) {
+            console.error(`Error finding user ${username}:`, error);
+            notFoundUsernames.push(username);
+          }
+        }
+
+        if (notFoundUsernames.length > 0) {
+          await interaction.reply({
+            content: `Could not find the following users: ${notFoundUsernames.join(
+              ', '
+            )}. Please check the usernames and try again.`,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        winningVoters = userIds;
+        console.log(
+          `✅ [${environment.toUpperCase()}] Using manual winners: ${winnerUsernames.join(
+            ', '
+          )}`
+        );
+      }
+    } else {
+      // Calculate winners from database votes (original behavior)
+      if (winningChoice === 'under') {
+        winningVoters = prompt.votes
+          .filter((v: { voteChoice: string }) => v.voteChoice === 'under')
+          .map((v: { userId: any }) => v.userId);
+      } else if (winningChoice === 'over') {
+        winningVoters = prompt.votes
+          .filter((v: { voteChoice: string }) => v.voteChoice === 'over')
+          .map((v: { userId: any }) => v.userId);
+      }
     }
 
     // Save result to database
@@ -150,6 +220,7 @@ export async function execute(interaction: CommandInteraction) {
           backfilled: true,
           backfilledAt: new Date().toISOString(),
           backfilledBy: interaction.user.id,
+          manualWinners: manualWinners ? true : false,
         },
         winningChoice: winningChoice,
       },
@@ -197,34 +268,42 @@ export async function execute(interaction: CommandInteraction) {
     }
 
     // Build success embed
+    const embedFields = [
+      { name: 'Date', value: dateStr, inline: true },
+      { name: 'Prompt TOI', value: promptTOI, inline: true },
+      { name: 'Actual TOI', value: actualTOI, inline: true },
+      { name: 'Result', value: winningChoice.toUpperCase(), inline: false },
+      {
+        name: 'Winners',
+        value:
+          winnerNames.length > 0 ? winnerNames.join(', ') : 'No winners (push)',
+      },
+    ];
+
+    if (!manualWinners) {
+      embedFields.push({
+        name: 'Total Votes',
+        value: `${prompt.votes.length} (${
+          prompt.votes.filter(
+            (v: { voteChoice: string }) => v.voteChoice === 'over'
+          ).length
+        } over, ${
+          prompt.votes.filter(
+            (v: { voteChoice: string }) => v.voteChoice === 'under'
+          ).length
+        } under)`,
+      });
+    } else {
+      embedFields.push({
+        name: 'Source',
+        value: 'Manual winners (specified via command)',
+      });
+    }
+
     const embed = new EmbedBuilder()
       .setTitle('✅ Winners Backfilled Successfully')
       .setColor(0x00ff00)
-      .addFields(
-        { name: 'Date', value: dateStr, inline: true },
-        { name: 'Prompt TOI', value: promptTOI, inline: true },
-        { name: 'Actual TOI', value: actualTOI, inline: true },
-        { name: 'Result', value: winningChoice.toUpperCase(), inline: false },
-        {
-          name: 'Winners',
-          value:
-            winnerNames.length > 0
-              ? winnerNames.join(', ')
-              : 'No winners (push)',
-        },
-        {
-          name: 'Total Votes',
-          value: `${prompt.votes.length} (${
-            prompt.votes.filter(
-              (v: { voteChoice: string }) => v.voteChoice === 'over'
-            ).length
-          } over, ${
-            prompt.votes.filter(
-              (v: { voteChoice: string }) => v.voteChoice === 'under'
-            ).length
-          } under)`,
-        }
-      )
+      .addFields(embedFields)
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
