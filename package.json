@@ -16,6 +16,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/instrumentation": "^6.17.1",
     "dd-trace": "^5.47.0",
     "discord.js": "^14.17.3",
     "dotenv": "^16.4.7",

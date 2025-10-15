@@ -12,6 +12,11 @@ import path from 'node:path';
 import voteCommand from './commands/utility/vote';
 import logger from './utils/logger';
 import { logEnvironment } from './utils/environment';
+import { tracer } from './tracer';
+import {
+  PrismaInstrumentation,
+  registerInstrumentations,
+} from '@prisma/instrumentation';
 
 interface ExtendedClient extends Client {
   commands: Collection<
@@ -19,6 +24,15 @@ interface ExtendedClient extends Client {
     { data: any; execute: (interaction: CommandInteraction) => Promise<void> }
   >;
 }
+
+const provider = new tracer.TracerProvider();
+
+registerInstrumentations({
+  instrumentations: [new PrismaInstrumentation()],
+  tracerProvider: provider,
+});
+
+provider.register();
 
 const client: ExtendedClient = new Client({
   intents: [

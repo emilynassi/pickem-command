@@ -1,8 +1,15 @@
-# Use a lightweight Node.js image
-FROM node:22-alpine
+# Use Debian Bookworm slim for better Prisma compatibility
+# Uses glibc (vs musl in Alpine) and OpenSSL 3.0.x (fixed segfault in 3.0.17-1~deb12u2)
+# See: https://github.com/prisma/prisma/issues/27785
+FROM node:22-bookworm-slim
 
+# Update package lists and upgrade OpenSSL to ensure we have the fixed version (3.0.17-1~deb12u2 or later)
+# This avoids the segfault regression in 3.0.17-1~deb12u1
 # Install PostgreSQL client for health checks
-RUN apk add --no-cache postgresql-client
+RUN apt-get update && \
+    apt-get upgrade -y openssl && \
+    apt-get install -y --no-install-recommends postgresql-client && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
