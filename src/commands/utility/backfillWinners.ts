@@ -34,7 +34,7 @@ export const data = new SlashCommandBuilder()
     option
       .setName('manual_winners')
       .setDescription(
-        'Optional: Comma-separated usernames of winners (e.g., user1,user2). If omitted, calculates from database.'
+        'Comma-separated winner usernames (e.g., user1,user2). Leave empty to auto-calculate.'
       )
       .setRequired(false)
   );
