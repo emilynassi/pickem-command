@@ -34,7 +34,7 @@ export const data = new SlashCommandBuilder()
     option
       .setName('manual_winners')
       .setDescription(
-        'Comma-separated winner usernames (e.g., user1,user2). Leave empty to auto-calculate.'
+        'Extra winners by username or ID (e.g., user1,123456789). Combines with DB votes.'
       )
       .setRequired(false)
   );
@@ -140,71 +140,87 @@ export async function execute(interaction: CommandInteraction) {
       winningChoice = 'over';
     }
 
-    // Handle manual winners if provided
+    // Calculate winners from database votes
+    if (winningChoice === 'under') {
+      winningVoters = prompt.votes
+        .filter((v: { voteChoice: string }) => v.voteChoice === 'under')
+        .map((v: { userId: any }) => v.userId);
+    } else if (winningChoice === 'over') {
+      winningVoters = prompt.votes
+        .filter((v: { voteChoice: string }) => v.voteChoice === 'over')
+        .map((v: { userId: any }) => v.userId);
+    }
+
+    // Add manual winners if provided (combines with database winners)
     if (manualWinners) {
-      const winnerUsernames = manualWinners
+      const inputs = manualWinners
         .split(',')
         .map((u) => u.trim())
         .filter((u) => u.length > 0);
 
-      if (winnerUsernames.length > 0) {
-        // Convert usernames to userIds
-        const userIds: string[] = [];
-        const notFoundUsernames: string[] = [];
+      if (inputs.length > 0) {
+        const manualUserIds: string[] = [];
+        const notFound: string[] = [];
 
-        for (const username of winnerUsernames) {
+        for (const input of inputs) {
           try {
-            // Try to find the user in the guild members
-            const guild = interaction.guild;
-            if (guild) {
-              const members = await guild.members.fetch();
-              const member = members.find(
-                (m) =>
-                  m.user.username.toLowerCase() === username.toLowerCase() ||
-                  m.user.tag.toLowerCase() === username.toLowerCase()
-              );
+            // Check if input is a user ID (numeric, typically 17-19 digits)
+            const isUserId = /^\d{17,19}$/.test(input);
 
-              if (member) {
-                userIds.push(member.user.id);
-              } else {
-                notFoundUsernames.push(username);
+            if (isUserId) {
+              // Direct user ID - validate it exists
+              try {
+                await interaction.client.users.fetch(input);
+                manualUserIds.push(input);
+              } catch {
+                notFound.push(input);
               }
             } else {
-              notFoundUsernames.push(username);
+              // Username - look up in guild
+              const guild = interaction.guild;
+              if (guild) {
+                const members = await guild.members.fetch();
+                const member = members.find(
+                  (m) =>
+                    m.user.username.toLowerCase() === input.toLowerCase() ||
+                    m.user.tag.toLowerCase() === input.toLowerCase()
+                );
+
+                if (member) {
+                  manualUserIds.push(member.user.id);
+                } else {
+                  notFound.push(input);
+                }
+              } else {
+                notFound.push(input);
+              }
             }
           } catch (error) {
-            console.error(`Error finding user ${username}:`, error);
-            notFoundUsernames.push(username);
+            console.error(`Error finding user ${input}:`, error);
+            notFound.push(input);
           }
         }
 
-        if (notFoundUsernames.length > 0) {
+        if (notFound.length > 0) {
           await interaction.reply({
-            content: `Could not find the following users: ${notFoundUsernames.join(
+            content: `Could not find the following users: ${notFound.join(
               ', '
-            )}. Please check the usernames and try again.`,
+            )}. Please check the usernames/IDs and try again.`,
             flags: MessageFlags.Ephemeral,
           });
           return;
         }
 
-        winningVoters = userIds;
+        // Combine database winners with manual winners (remove duplicates)
+        const combinedWinners = [
+          ...new Set([...winningVoters, ...manualUserIds]),
+        ];
+        winningVoters = combinedWinners;
         console.log(
-          `✅ [${environment.toUpperCase()}] Using manual winners: ${winnerUsernames.join(
-            ', '
-          )}`
+          `✅ [${environment.toUpperCase()}] Added ${
+            manualUserIds.length
+          } manual winner(s) (Total: ${winningVoters.length})`
         );
-      }
-    } else {
-      // Calculate winners from database votes (original behavior)
-      if (winningChoice === 'under') {
-        winningVoters = prompt.votes
-          .filter((v: { voteChoice: string }) => v.voteChoice === 'under')
-          .map((v: { userId: any }) => v.userId);
-      } else if (winningChoice === 'over') {
-        winningVoters = prompt.votes
-          .filter((v: { voteChoice: string }) => v.voteChoice === 'over')
-          .map((v: { userId: any }) => v.userId);
       }
     }
 
@@ -280,23 +296,23 @@ export async function execute(interaction: CommandInteraction) {
       },
     ];
 
-    if (!manualWinners) {
+    embedFields.push({
+      name: 'Total Votes',
+      value: `${prompt.votes.length} (${
+        prompt.votes.filter(
+          (v: { voteChoice: string }) => v.voteChoice === 'over'
+        ).length
+      } over, ${
+        prompt.votes.filter(
+          (v: { voteChoice: string }) => v.voteChoice === 'under'
+        ).length
+      } under)`,
+    });
+
+    if (manualWinners) {
       embedFields.push({
-        name: 'Total Votes',
-        value: `${prompt.votes.length} (${
-          prompt.votes.filter(
-            (v: { voteChoice: string }) => v.voteChoice === 'over'
-          ).length
-        } over, ${
-          prompt.votes.filter(
-            (v: { voteChoice: string }) => v.voteChoice === 'under'
-          ).length
-        } under)`,
-      });
-    } else {
-      embedFields.push({
-        name: 'Source',
-        value: 'Manual winners (specified via command)',
+        name: 'Note',
+        value: 'Includes manual winners added via command',
       });
     }
 
