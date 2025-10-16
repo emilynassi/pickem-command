@@ -3,7 +3,6 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { ScoreApiResponse, Game } from '../types/score';
 import { GameBoxScore } from '../types/boxscore';
-import logger from './logger';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -19,15 +18,12 @@ const getToday = (): string => {
   return new Intl.DateTimeFormat('en-CA', options).format(new Date());
 };
 
-// Function to fetch the current game details including season and gameType
-export async function fetchCurrentGameDetails(): Promise<{
-  id: number;
-  season: number;
-  gameType: number;
-} | null> {
+// Function to fetch the current game ID to pass to the boxscore API
+// We know the Rangers ID is 3, so we can hardcode it for now
+export async function fetchCurrentGameId(): Promise<number | null> {
   const today = getToday();
   const SCORE_API_URL = `https://api-web.nhle.com/v1/score/${today}`;
-  logger.info('Fetching game data from:', { url: SCORE_API_URL });
+  console.log('Fetching game data from:', SCORE_API_URL);
 
   try {
     let data: ScoreApiResponse;
@@ -39,11 +35,6 @@ export async function fetchCurrentGameDetails(): Promise<{
     } else {
       // Fetch data from the real API
       const response = await fetch(SCORE_API_URL);
-      if (!response.ok) {
-        throw new Error(
-          `API returned ${response.status}: ${response.statusText}`
-        );
-      }
       data = (await response.json()) as ScoreApiResponse;
     }
 
@@ -51,20 +42,11 @@ export async function fetchCurrentGameDetails(): Promise<{
     const game = data.games.find(
       (game: Game) => game.awayTeam.id === 3 || game.homeTeam.id === 3
     );
-    return game
-      ? { id: game.id, season: game.season, gameType: game.gameType }
-      : null;
+    return game ? game.id : null;
   } catch (error) {
-    logger.error('Failed to fetch current game details', { error });
+    console.error('Failed to fetch current game ID:', error);
     return null;
   }
-}
-
-// Function to fetch the current game ID to pass to the boxscore API
-// We know the Rangers ID is 3, so we can hardcode it for now
-export async function fetchCurrentGameId(): Promise<number | null> {
-  const gameDetails = await fetchCurrentGameDetails();
-  return gameDetails ? gameDetails.id : null;
 }
 
 //reusable function to fetch box score data
@@ -81,17 +63,12 @@ export async function fetchBoxScore(gameId: number): Promise<any> {
       const response = await fetch(
         `https://api-web.nhle.com/v1/gamecenter/${gameId}/boxscore`
       );
-      if (!response.ok) {
-        throw new Error(
-          `API returned ${response.status}: ${response.statusText}`
-        );
-      }
       data = (await response.json()) as GameBoxScore;
     }
 
     return data;
   } catch (error) {
-    logger.error('Failed to fetch box score', { gameId, error });
+    console.error('Failed to fetch box score:', error);
     return null;
   }
 }

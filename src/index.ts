@@ -5,28 +5,14 @@ import {
   Collection,
   MessageFlags,
   CommandInteraction,
+  ButtonInteraction,
+  ModalSubmitInteraction,
 } from 'discord.js';
 import { config } from './config';
 import fs from 'node:fs';
 import path from 'node:path';
 import voteCommand from './commands/utility/vote';
 import logger from './utils/logger';
-import { logEnvironment } from './utils/environment';
-import { tracer } from './tracer';
-import {
-  PrismaInstrumentation,
-  registerInstrumentations,
-} from '@prisma/instrumentation';
-
-// Global error handlers
-process.on('unhandledRejection', (error) => {
-  logger.error('Unhandled promise rejection', { error });
-});
-
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught exception', { error });
-  process.exit(1);
-});
 
 interface ExtendedClient extends Client {
   commands: Collection<
@@ -34,15 +20,6 @@ interface ExtendedClient extends Client {
     { data: any; execute: (interaction: CommandInteraction) => Promise<void> }
   >;
 }
-
-const provider = new tracer.TracerProvider();
-
-registerInstrumentations({
-  instrumentations: [new PrismaInstrumentation()],
-  tracerProvider: provider,
-});
-
-provider.register();
 
 const client: ExtendedClient = new Client({
   intents: [
@@ -56,39 +33,31 @@ const token = config.DISCORD_TOKEN;
 
 client.commands = new Collection();
 
-// Wrap command loading in try-catch
-try {
-  const foldersPath = path.join(__dirname, 'commands');
-  const commandFolders = fs.readdirSync(foldersPath);
+const foldersPath = path.join(__dirname, 'commands');
+const commandFolders = fs.readdirSync(foldersPath);
 
-  for (const folder of commandFolders) {
-    const commandsPath = path.join(foldersPath, folder);
-    const commandFiles = fs
-      .readdirSync(commandsPath)
-      .filter((file) => file.endsWith('.ts'));
-    for (const file of commandFiles) {
-      const filePath = path.join(commandsPath, file);
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const command = require(filePath);
-      // Set a new item in the Collection with the key as the command name and the value as the exported module
-      if ('data' in command && 'execute' in command) {
-        client.commands.set(command.data.name, command);
-        logger.info(`Loaded command: ${command.data.name}`);
-      } else {
-        logger.warn(
-          `The command at ${filePath} is missing a required "data" or "execute" property.`
-        );
-      }
+for (const folder of commandFolders) {
+  const commandsPath = path.join(foldersPath, folder);
+  const commandFiles = fs
+    .readdirSync(commandsPath)
+    .filter((file) => file.endsWith('.ts'));
+  for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const command = require(filePath);
+    // Set a new item in the Collection with the key as the command name and the value as the exported module
+    if ('data' in command && 'execute' in command) {
+      client.commands.set(command.data.name, command);
+      logger.info(`Loaded command: ${command.data.name}`);
+    } else {
+      logger.warn(
+        `The command at ${filePath} is missing a required "data" or "execute" property.`
+      );
     }
   }
-} catch (error) {
-  logger.error('Failed to load commands', { error });
-  process.exit(1);
 }
 
 client.once(Events.ClientReady, (readyClient: { user: { tag: any } }) => {
   logger.info(`Ready! Logged in as ${readyClient.user.tag}`);
-  logEnvironment();
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -151,7 +120,4 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 // Log in to Discord with your client's token
-client.login(token).catch((error) => {
-  logger.error('Failed to login to Discord', { error });
-  process.exit(1);
-});
+client.login(token);

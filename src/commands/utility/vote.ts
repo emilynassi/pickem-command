@@ -11,10 +11,7 @@ import {
 } from 'discord.js';
 import { voteMessages } from '../../utils/votedMessages';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
-import { fetchCurrentGameDetails } from '../../utils/findGame';
-import { prisma } from '../../lib/prisma';
-import { getCurrentEnvironment } from '../../utils/environment';
-import logger from '../../utils/logger';
+import { fetchCurrentGameId } from '../../utils/findGame';
 
 export const votes = new Map<
   string,
@@ -32,8 +29,8 @@ export const data = new SlashCommandBuilder()
 
 export async function execute(interaction: CommandInteraction) {
   // Return if no game is found.
-  const gameDetails = await fetchCurrentGameDetails();
-  if (!gameDetails) {
+  const gameId = await fetchCurrentGameId();
+  if (!gameId) {
     await interaction.reply({
       content: 'No game found today.',
       flags: MessageFlags.Ephemeral,
@@ -80,40 +77,8 @@ export async function execute(interaction: CommandInteraction) {
 
   voteMessages.set(interaction.channelId, message.id);
   votePrompts.set(interaction.channelId, prompt);
-  logger.info('Vote prompts updated', {
-    votePrompts: Array.from(votePrompts.entries()),
-  });
+  console.log(votePrompts);
   votes.set(message.id, { upvotes: new Set(), downvotes: new Set() });
-
-  // Save prompt to database
-  const environment = getCurrentEnvironment();
-  try {
-    await prisma.prompt.create({
-      data: {
-        promptId: message.id,
-        guildId: interaction.guildId || '',
-        environment: environment,
-        promptType: 'player_toi',
-        promptText: prompt,
-        metadata: {
-          gameId: gameDetails.id.toString(),
-          channelId: interaction.channelId,
-        },
-        gameDate: new Date(),
-        gameId: gameDetails.id.toString(),
-        season: gameDetails.season,
-        gameType: gameDetails.gameType,
-        createdBy: interaction.user.id,
-      },
-    });
-    logger.info(`Prompt saved to database: ${prompt}`, {
-      environment,
-      season: gameDetails.season,
-      gameType: gameDetails.gameType,
-    });
-  } catch (error) {
-    logger.error(`Error saving prompt to database`, { environment, error });
-  }
 
   // Periodically check the API to lock votes.
   const intervalId = setInterval(async () => {
@@ -165,59 +130,8 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
         voteData.downvotes.add(userId);
       }
 
-      // Save vote to database
-      const environment = getCurrentEnvironment();
-      try {
-        const promptRecord = await prisma.prompt.findUnique({
-          where: { promptId: messageId },
-        });
-
-        if (promptRecord) {
-          const voteChoice =
-            interaction.customId === 'upvote' ? 'over' : 'under';
-          await prisma.vote.upsert({
-            where: {
-              promptId_userId: {
-                promptId: promptRecord.id,
-                userId: userId,
-              },
-            },
-            update: {
-              voteChoice: voteChoice,
-              votedAt: new Date(),
-            },
-            create: {
-              promptId: promptRecord.id,
-              userId: userId,
-              voteChoice: voteChoice,
-            },
-          });
-          logger.info(`Vote saved`, {
-            environment,
-            username: interaction.user.username,
-            voteChoice,
-          });
-        }
-      } catch (error) {
-        logger.error(`Error saving vote to database`, { environment, error });
-      }
-
       if (!interaction.channel || !('messages' in interaction.channel)) return;
-
-      let message;
-      try {
-        message = await interaction.channel.messages.fetch(messageId);
-      } catch (error) {
-        logger.error('Failed to fetch message for vote update', {
-          messageId,
-          error,
-        });
-        await interaction.reply({
-          content: 'Could not update the vote message.',
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
+      const message = await interaction.channel.messages.fetch(messageId);
 
       // Rebuild the embed with updated vote counts.
       let updatedEmbed: EmbedBuilder;
