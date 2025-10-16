@@ -2,6 +2,7 @@ import { REST, Routes } from 'discord.js';
 import { config } from './config';
 import fs from 'node:fs';
 import path from 'node:path';
+import logger from './utils/logger';
 
 const token = config.DISCORD_TOKEN;
 const clientId = config.DISCORD_CLIENT_ID!;
@@ -26,7 +27,7 @@ const loadCommands = async () => {
       if ('data' in command && 'execute' in command) {
         commands.push(command.data.toJSON());
       } else {
-        console.log(
+        logger.warn(
           `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
         );
       }
@@ -40,9 +41,9 @@ const rest = new REST().setToken(token);
 // and deploy your commands!
 (async () => {
   try {
-    await loadCommands(); // Ensure that the async function is called here
-    console.log(commands);
-    console.log(
+    await loadCommands();
+    logger.info('Commands to deploy:', { commands });
+    logger.info(
       `Started refreshing ${commands.length} application (/) commands.`
     );
 
@@ -50,11 +51,10 @@ const rest = new REST().setToken(token);
     const data: any = await rest.put(Routes.applicationCommands(clientId), {
       body: commands,
     });
-    console.log(
+    logger.info(
       `Successfully reloaded ${data.length} application (/) commands.`
     );
   } catch (error) {
-    // And of course, make sure you catch and log any errors!
-    console.error(error);
+    logger.error(error);
   }
 })();

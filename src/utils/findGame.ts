@@ -3,6 +3,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { ScoreApiResponse, Game } from '../types/score';
 import { GameBoxScore } from '../types/boxscore';
+import logger from './logger';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -23,7 +24,7 @@ const getToday = (): string => {
 export async function fetchCurrentGameId(): Promise<number | null> {
   const today = getToday();
   const SCORE_API_URL = `https://api-web.nhle.com/v1/score/${today}`;
-  console.log('Fetching game data from:', SCORE_API_URL);
+  logger.info('Fetching game data from:', SCORE_API_URL);
 
   try {
     let data: ScoreApiResponse;
@@ -44,7 +45,7 @@ export async function fetchCurrentGameId(): Promise<number | null> {
     );
     return game ? game.id : null;
   } catch (error) {
-    console.error('Failed to fetch current game ID:', error);
+    logger.error('Failed to fetch current game ID:', error);
     return null;
   }
 }
@@ -68,7 +69,7 @@ export async function fetchBoxScore(gameId: number): Promise<any> {
 
     return data;
   } catch (error) {
-    console.error('Failed to fetch box score:', error);
+    logger.error('Failed to fetch box score:', error);
     return null;
   }
 }
