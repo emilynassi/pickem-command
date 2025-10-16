@@ -3,9 +3,6 @@ const tsPlugin = require('@typescript-eslint/eslint-plugin');
 
 module.exports = [
   {
-    ignores: ['node_modules/**', 'dist/**', 'src/generated/**', '*.js', '*.d.ts'],
-  },
-  {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: tsParser,

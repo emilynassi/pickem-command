@@ -7,7 +7,6 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { EmbedBuilder } from 'discord.js';
 import { votePrompts } from '../commands/utility/vote';
-import logger from './logger';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -17,7 +16,7 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
     // Fetch the current game ID
     const gameId = await fetchCurrentGameId();
     if (!gameId) {
-      logger.error('No current game ID found.');
+      console.error('No current game ID found.');
       return false;
     }
 
@@ -30,11 +29,6 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
       const response = await fetch(
         `https://api-web.nhle.com/v1/gamecenter/${gameId}/boxscore`
       );
-      if (!response.ok) {
-        throw new Error(
-          `API returned ${response.status}: ${response.statusText}`
-        );
-      }
       data = (await response.json()) as GameBoxScore;
     }
 
@@ -82,9 +76,9 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
 
         // Look for player #73 across all position groups
         const player73 =
-          rangerStats.forwards.find((p) => p.sweaterNumber === 73) ||
-          rangerStats.defense.find((p) => p.sweaterNumber === 73) ||
-          rangerStats.goalies.find((p) => p.sweaterNumber === 73);
+          rangerStats.forwards.find(p => p.sweaterNumber === 73) ||
+          rangerStats.defense.find(p => p.sweaterNumber === 73) ||
+          rangerStats.goalies.find(p => p.sweaterNumber === 73);
 
         let embed: EmbedBuilder;
 
@@ -92,18 +86,16 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
         if (!player73) {
           embed = new EmbedBuilder()
             .setTitle('Voting Canceled')
-            .setDescription(
-              `Vote for predicted TOI: **${promptTOI}** has been canceled because Matt Rempe is not playing today.`
-            )
-            .setColor(0xff0000)
+            .setDescription(`Vote for predicted TOI: **${promptTOI}** has been canceled because Matt Rempe is not playing today.`)
+            .setColor(0xFF0000)
             .addFields(
               { name: 'Over votes', value: upvoters, inline: true },
               { name: 'Under votes', value: downvoters, inline: true }
             )
             .setFooter({
-              text: `Final Vote Count: ${
-                voteData?.upvotes.size ?? 'N/A'
-              } Over, ${voteData?.downvotes.size ?? 'N/A'} Under`,
+              text: `Final Vote Count: ${voteData?.upvotes.size ?? 'N/A'} Over, ${
+                voteData?.downvotes.size ?? 'N/A'
+              } Under`,
             })
             .setTimestamp();
 
@@ -124,9 +116,9 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
               { name: 'Under', value: downvoters, inline: true }
             )
             .setFooter({
-              text: `Final Vote Count: ${
-                voteData?.upvotes.size ?? 'N/A'
-              } Over, ${voteData?.downvotes.size ?? 'N/A'} Under`,
+              text: `Final Vote Count: ${voteData?.upvotes.size ?? 'N/A'} Over, ${
+                voteData?.downvotes.size ?? 'N/A'
+              } Under`,
             })
             .setTimestamp();
 
@@ -144,8 +136,8 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
       }
     }
   } catch (error) {
-    logger.error('Failed to check API and lock votes', { error });
-    return true; // Clear interval on error to prevent zombie timers
+    console.error('Failed to check API and lock votes:', error);
+    return true;
   }
   return false;
 }
