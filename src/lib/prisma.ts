@@ -1,5 +1,6 @@
 import { PrismaClient } from '../generated/prisma';
 import { tracer } from '../tracer';
+import logger from '../utils/logger';
 
 declare global {
   var prisma: ReturnType<typeof createPrismaClient> | undefined;
@@ -52,3 +53,9 @@ export const prisma = global.prisma || createPrismaClient();
 if (process.env.NODE_ENV !== 'production') {
   global.prisma = prisma;
 }
+
+// Test database connection
+prisma.$connect().catch((error) => {
+  logger.error('Failed to connect to database', { error });
+  // Don't exit - allow bot to run without DB if needed
+});

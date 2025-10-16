@@ -18,6 +18,16 @@ import {
   registerInstrumentations,
 } from '@prisma/instrumentation';
 
+// Global error handlers
+process.on('unhandledRejection', (error) => {
+  logger.error('Unhandled promise rejection', { error });
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught exception', { error });
+  process.exit(1);
+});
+
 interface ExtendedClient extends Client {
   commands: Collection<
     string,
@@ -46,28 +56,34 @@ const token = config.DISCORD_TOKEN;
 
 client.commands = new Collection();
 
-const foldersPath = path.join(__dirname, 'commands');
-const commandFolders = fs.readdirSync(foldersPath);
+// Wrap command loading in try-catch
+try {
+  const foldersPath = path.join(__dirname, 'commands');
+  const commandFolders = fs.readdirSync(foldersPath);
 
-for (const folder of commandFolders) {
-  const commandsPath = path.join(foldersPath, folder);
-  const commandFiles = fs
-    .readdirSync(commandsPath)
-    .filter((file) => file.endsWith('.ts'));
-  for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const command = require(filePath);
-    // Set a new item in the Collection with the key as the command name and the value as the exported module
-    if ('data' in command && 'execute' in command) {
-      client.commands.set(command.data.name, command);
-      logger.info(`Loaded command: ${command.data.name}`);
-    } else {
-      logger.warn(
-        `The command at ${filePath} is missing a required "data" or "execute" property.`
-      );
+  for (const folder of commandFolders) {
+    const commandsPath = path.join(foldersPath, folder);
+    const commandFiles = fs
+      .readdirSync(commandsPath)
+      .filter((file) => file.endsWith('.ts'));
+    for (const file of commandFiles) {
+      const filePath = path.join(commandsPath, file);
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const command = require(filePath);
+      // Set a new item in the Collection with the key as the command name and the value as the exported module
+      if ('data' in command && 'execute' in command) {
+        client.commands.set(command.data.name, command);
+        logger.info(`Loaded command: ${command.data.name}`);
+      } else {
+        logger.warn(
+          `The command at ${filePath} is missing a required "data" or "execute" property.`
+        );
+      }
     }
   }
+} catch (error) {
+  logger.error('Failed to load commands', { error });
+  process.exit(1);
 }
 
 client.once(Events.ClientReady, (readyClient: { user: { tag: any } }) => {
@@ -135,4 +151,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 });
 
 // Log in to Discord with your client's token
-client.login(token);
+client.login(token).catch((error) => {
+  logger.error('Failed to login to Discord', { error });
+  process.exit(1);
+});

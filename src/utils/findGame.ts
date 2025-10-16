@@ -3,6 +3,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { ScoreApiResponse, Game } from '../types/score';
 import { GameBoxScore } from '../types/boxscore';
+import logger from './logger';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -19,10 +20,14 @@ const getToday = (): string => {
 };
 
 // Function to fetch the current game details including season and gameType
-export async function fetchCurrentGameDetails(): Promise<{id: number, season: number, gameType: number} | null> {
+export async function fetchCurrentGameDetails(): Promise<{
+  id: number;
+  season: number;
+  gameType: number;
+} | null> {
   const today = getToday();
   const SCORE_API_URL = `https://api-web.nhle.com/v1/score/${today}`;
-  console.log('Fetching game data from:', SCORE_API_URL);
+  logger.info('Fetching game data from:', { url: SCORE_API_URL });
 
   try {
     let data: ScoreApiResponse;
@@ -34,6 +39,11 @@ export async function fetchCurrentGameDetails(): Promise<{id: number, season: nu
     } else {
       // Fetch data from the real API
       const response = await fetch(SCORE_API_URL);
+      if (!response.ok) {
+        throw new Error(
+          `API returned ${response.status}: ${response.statusText}`
+        );
+      }
       data = (await response.json()) as ScoreApiResponse;
     }
 
@@ -41,9 +51,11 @@ export async function fetchCurrentGameDetails(): Promise<{id: number, season: nu
     const game = data.games.find(
       (game: Game) => game.awayTeam.id === 3 || game.homeTeam.id === 3
     );
-    return game ? { id: game.id, season: game.season, gameType: game.gameType } : null;
+    return game
+      ? { id: game.id, season: game.season, gameType: game.gameType }
+      : null;
   } catch (error) {
-    console.error('Failed to fetch current game details:', error);
+    logger.error('Failed to fetch current game details', { error });
     return null;
   }
 }
@@ -69,12 +81,17 @@ export async function fetchBoxScore(gameId: number): Promise<any> {
       const response = await fetch(
         `https://api-web.nhle.com/v1/gamecenter/${gameId}/boxscore`
       );
+      if (!response.ok) {
+        throw new Error(
+          `API returned ${response.status}: ${response.statusText}`
+        );
+      }
       data = (await response.json()) as GameBoxScore;
     }
 
     return data;
   } catch (error) {
-    console.error('Failed to fetch box score:', error);
+    logger.error('Failed to fetch box score', { gameId, error });
     return null;
   }
 }

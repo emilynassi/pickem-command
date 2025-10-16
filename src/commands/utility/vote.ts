@@ -14,6 +14,7 @@ import { checkApiAndLockVotes } from '../../utils/lockVotes';
 import { fetchCurrentGameDetails } from '../../utils/findGame';
 import { prisma } from '../../lib/prisma';
 import { getCurrentEnvironment } from '../../utils/environment';
+import logger from '../../utils/logger';
 
 export const votes = new Map<
   string,
@@ -79,7 +80,9 @@ export async function execute(interaction: CommandInteraction) {
 
   voteMessages.set(interaction.channelId, message.id);
   votePrompts.set(interaction.channelId, prompt);
-  console.log(votePrompts);
+  logger.info('Vote prompts updated', {
+    votePrompts: Array.from(votePrompts.entries()),
+  });
   votes.set(message.id, { upvotes: new Set(), downvotes: new Set() });
 
   // Save prompt to database
@@ -103,9 +106,13 @@ export async function execute(interaction: CommandInteraction) {
         createdBy: interaction.user.id,
       },
     });
-    console.log(`✅ [${environment.toUpperCase()}] Prompt saved to database: ${prompt} (Season: ${gameDetails.season}, GameType: ${gameDetails.gameType})`);
+    logger.info(`Prompt saved to database: ${prompt}`, {
+      environment,
+      season: gameDetails.season,
+      gameType: gameDetails.gameType,
+    });
   } catch (error) {
-    console.error(`❌ [${environment.toUpperCase()}] Error saving prompt to database:`, error);
+    logger.error(`Error saving prompt to database`, { environment, error });
   }
 
   // Periodically check the API to lock votes.
@@ -166,7 +173,8 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
         });
 
         if (promptRecord) {
-          const voteChoice = interaction.customId === 'upvote' ? 'over' : 'under';
+          const voteChoice =
+            interaction.customId === 'upvote' ? 'over' : 'under';
           await prisma.vote.upsert({
             where: {
               promptId_userId: {
@@ -184,14 +192,32 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
               voteChoice: voteChoice,
             },
           });
-          console.log(`✅ [${environment.toUpperCase()}] Vote saved: ${interaction.user.username} voted ${voteChoice}`);
+          logger.info(`Vote saved`, {
+            environment,
+            username: interaction.user.username,
+            voteChoice,
+          });
         }
       } catch (error) {
-        console.error(`❌ [${environment.toUpperCase()}] Error saving vote to database:`, error);
+        logger.error(`Error saving vote to database`, { environment, error });
       }
 
       if (!interaction.channel || !('messages' in interaction.channel)) return;
-      const message = await interaction.channel.messages.fetch(messageId);
+
+      let message;
+      try {
+        message = await interaction.channel.messages.fetch(messageId);
+      } catch (error) {
+        logger.error('Failed to fetch message for vote update', {
+          messageId,
+          error,
+        });
+        await interaction.reply({
+          content: 'Could not update the vote message.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
 
       // Rebuild the embed with updated vote counts.
       let updatedEmbed: EmbedBuilder;
