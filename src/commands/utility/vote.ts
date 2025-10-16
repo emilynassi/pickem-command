@@ -12,6 +12,7 @@ import {
 import { voteMessages } from '../../utils/votedMessages';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
 import { fetchCurrentGameId } from '../../utils/findGame';
+import logger from '../../utils/logger';
 
 export const votes = new Map<
   string,
@@ -77,7 +78,9 @@ export async function execute(interaction: CommandInteraction) {
 
   voteMessages.set(interaction.channelId, message.id);
   votePrompts.set(interaction.channelId, prompt);
-  console.log(votePrompts);
+  logger.info('Vote prompts:', {
+    votePrompts: Object.fromEntries(votePrompts),
+  });
   votes.set(message.id, { upvotes: new Set(), downvotes: new Set() });
 
   // Periodically check the API to lock votes.
