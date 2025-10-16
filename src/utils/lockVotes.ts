@@ -145,7 +145,7 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
     }
   } catch (error) {
     logger.error('Failed to check API and lock votes', { error });
-    return false;
+    return true; // Clear interval on error to prevent zombie timers
   }
   return false;
 }
