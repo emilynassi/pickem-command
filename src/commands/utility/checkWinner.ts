@@ -1,7 +1,6 @@
 import {
   SlashCommandBuilder,
   CommandInteraction,
-  MessageFlags,
   EmbedBuilder,
 } from 'discord.js';
 import { voteMessages } from '../../utils/votedMessages';
@@ -22,21 +21,22 @@ export const data = new SlashCommandBuilder()
   .setDescription('Announce winners for your over/under TOI prediction.');
 
 export async function execute(interaction: CommandInteraction) {
+  // Defer reply immediately since we'll be making API calls
+  await interaction.deferReply();
+
   // Retrieve the active vote message.
   const channelId = interaction.channelId;
   const messageId = voteMessages.get(channelId);
   if (!messageId) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'No active vote found for this channel.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
   if (!interaction.channel) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Channel not found.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -44,9 +44,8 @@ export async function execute(interaction: CommandInteraction) {
   // Extract the prompt TOI from the vote prompt.
   const votePrompt = votePrompts.get(channelId);
   if (!votePrompt) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Original vote prompt not found.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -54,9 +53,8 @@ export async function execute(interaction: CommandInteraction) {
   // Now votePrompt is directly "9:48", so we can validate it with:
   const match = votePrompt.match(/^(\d{1,2}:\d{2})$/);
   if (!match) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'The stored TOI is not in the correct format.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -65,9 +63,8 @@ export async function execute(interaction: CommandInteraction) {
   // Fetch final game data.
   const gameId = await fetchCurrentGameId();
   if (!gameId) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Unable to fetch game data.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -85,18 +82,16 @@ export async function execute(interaction: CommandInteraction) {
 
   //if the game is still live, return
   if (boxData.gameState === 'LIVE') {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'The game is still live. Please try again later.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
   //if the game state is in the future, return
   if (boxData.gameState === 'FUT') {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'The game has not started yet. Please try again later.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -116,9 +111,8 @@ export async function execute(interaction: CommandInteraction) {
   }
 
   if (!actualTOI) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Could not find the actual TOI for sweater number 73.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -172,7 +166,7 @@ export async function execute(interaction: CommandInteraction) {
     )
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed] });
+  await interaction.editReply({ embeds: [embed] });
 }
 
 export default {
