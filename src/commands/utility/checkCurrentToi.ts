@@ -14,12 +14,14 @@ export const data = new SlashCommandBuilder()
   .setDescription('Check current TOI for Rempe (sweaterNumber 73)');
 
 export async function execute(interaction: CommandInteraction) {
+  // Defer reply immediately since we'll be making API calls
+  await interaction.deferReply();
+
   //return if no game is found today (there will be no current game id)
   const gameId = await fetchCurrentGameId();
   if (!gameId) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'No game found today.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -27,9 +29,8 @@ export async function execute(interaction: CommandInteraction) {
   // Fetch the box score data
   const boxScore = await fetchBoxScore(gameId);
   if (!boxScore) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'No box score data found for this game.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -42,9 +43,8 @@ export async function execute(interaction: CommandInteraction) {
     rangerStats.defense.find((p) => p.sweaterNumber === 73);
 
   if (!player73) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Rempe not found in the box score.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -66,5 +66,5 @@ export async function execute(interaction: CommandInteraction) {
       },
     ]);
 
-  await interaction.reply({ embeds: [embed] });
+  await interaction.editReply({ embeds: [embed] });
 }
