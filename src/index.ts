@@ -5,8 +5,6 @@ import {
   Collection,
   MessageFlags,
   CommandInteraction,
-  ButtonInteraction,
-  ModalSubmitInteraction,
 } from 'discord.js';
 import { config } from './config';
 import fs from 'node:fs';
@@ -79,16 +77,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
       logger.error(`Error executing command: ${interaction.commandName}`, {
         error,
       });
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({
-          content: 'There was an error while executing this command!',
-          flags: MessageFlags.Ephemeral,
-        });
-      } else {
-        await interaction.reply({
-          content: 'There was an error while executing this command!',
-          flags: MessageFlags.Ephemeral,
-        });
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({
+            content: 'There was an error while executing this command!',
+            flags: MessageFlags.Ephemeral,
+          });
+        } else {
+          await interaction.reply({
+            content: 'There was an error while executing this command!',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+      } catch (replyError) {
+        // If we can't reply (e.g., interaction token expired), just log it
+        logger.error('Failed to send error message to user', { replyError });
       }
     }
   } else if (interaction.isButton()) {
@@ -97,16 +100,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await voteCommand.handleButtonInteraction(interaction);
     } catch (error) {
       logger.error('Error handling button interaction', { error });
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({
-          content: 'There was an error while handling this interaction!',
-          flags: MessageFlags.Ephemeral,
-        });
-      } else {
-        await interaction.reply({
-          content: 'There was an error while handling this interaction!',
-          flags: MessageFlags.Ephemeral,
-        });
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({
+            content: 'There was an error while handling this interaction!',
+            flags: MessageFlags.Ephemeral,
+          });
+        } else {
+          await interaction.reply({
+            content: 'There was an error while handling this interaction!',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+      } catch (replyError) {
+        // If we can't reply (e.g., interaction token expired), just log it
+        logger.error('Failed to send error message to user', { replyError });
       }
     }
   } else if (interaction.isModalSubmit()) {

@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "NODE_OPTIONS='-r dd-trace/init' ts-node src/index.ts",
+    "dev": "NODE_ENV=development ts-node src/index.ts",
     "commands": "ts-node src/deploy-commands.ts",
+    "commands:dev": "NODE_ENV=development ts-node src/deploy-commands.ts",
+    "mock:live": "cp src/mocks/boxscore-live.json src/mocks/boxscore.json && echo 'Mock game set to LIVE'",
+    "mock:finished": "cp src/mocks/boxscore-finished.json src/mocks/boxscore.json && echo 'Mock game set to FINISHED'",
     "lint": "eslint . --fix",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

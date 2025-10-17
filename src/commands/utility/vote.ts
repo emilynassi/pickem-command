@@ -28,12 +28,14 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: CommandInteraction) {
+  // Defer reply immediately since we'll be making API calls
+  await interaction.deferReply();
+
   // Return if no game is found.
   const gameId = await fetchCurrentGameId();
   if (!gameId) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'No game found today.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -67,7 +69,7 @@ export async function execute(interaction: CommandInteraction) {
       .setStyle(ButtonStyle.Secondary)
   );
 
-  await interaction.reply({
+  await interaction.editReply({
     embeds: [voteEmbed],
     components: [row],
   });
