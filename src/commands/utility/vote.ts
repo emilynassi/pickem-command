@@ -3,8 +3,9 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  CommandInteraction,
+  ChatInputCommandInteraction,
   ButtonInteraction,
+  AutocompleteInteraction,
   CommandInteractionOptionResolver,
   MessageFlags,
   EmbedBuilder,
@@ -12,6 +13,7 @@ import {
 import { voteMessages } from '../../utils/votedMessages';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
 import { fetchCurrentGameId } from '../../utils/findGame';
+import { fetchRangersRoster, formatPlayerLabel } from '../../utils/roster';
 
 export const votes = new Map<
   string,
@@ -19,15 +21,36 @@ export const votes = new Map<
 >();
 
 export const votePrompts = new Map<string, string>();
+export const votePlayers = new Map<string, { sweaterNumber: number; name: string }>();
 
 export const data = new SlashCommandBuilder()
   .setName('vote')
   .setDescription('Vote on a TOI prediction.')
   .addStringOption((option) =>
+    option.setName('player').setDescription('Player to predict TOI for').setRequired(true).setAutocomplete(true)
+  )
+  .addStringOption((option) =>
     option.setName('toi').setDescription('Time on Ice').setRequired(true)
   );
 
-export async function execute(interaction: CommandInteraction) {
+export async function autocomplete(interaction: AutocompleteInteraction) {
+  const focusedValue = interaction.options.getFocused().toLowerCase();
+  const roster = await fetchRangersRoster();
+
+  const choices = roster
+    .filter((player) =>
+      formatPlayerLabel(player).toLowerCase().includes(focusedValue)
+    )
+    .slice(0, 25)
+    .map((player) => ({
+      name: formatPlayerLabel(player),
+      value: `${player.sweaterNumber}:${player.firstName.default} ${player.lastName.default}`,
+    }));
+
+  await interaction.respond(choices);
+}
+
+export async function execute(interaction: ChatInputCommandInteraction) {
   // Defer reply immediately since we'll be making API calls
   await interaction.deferReply();
 
@@ -41,12 +64,26 @@ export async function execute(interaction: CommandInteraction) {
   }
 
   const options = interaction.options as CommandInteractionOptionResolver;
+  const playerValue = options.getString('player') || '';
   const prompt = options.getString('toi') || '';
+
+  // Parse the player selection (format: "sweaterNumber:name")
+  const [sweaterStr, playerName] = playerValue.split(':');
+  const sweaterNumber = parseInt(sweaterStr, 10);
+  if (!sweaterNumber || !playerName) {
+    await interaction.editReply({
+      content: 'Invalid player selection. Please use the autocomplete dropdown.',
+    });
+    return;
+  }
+
+  // Store the selected player for this channel
+  votePlayers.set(interaction.channelId, { sweaterNumber, name: playerName });
 
   // Build an embed for the vote prompt.
   const voteEmbed = new EmbedBuilder()
     .setTitle('🔮 Vote on TOI Prediction 🔮')
-    .setDescription(`**${prompt}**`)
+    .setDescription(`**${playerName} - ${prompt}**`)
     .addFields(
       { name: '⬆️ Over', value: '0', inline: true },
       { name: '⬇️ Under', value: '0', inline: true }
@@ -197,5 +234,6 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
 export default {
   data,
   execute,
+  autocomplete,
   handleButtonInteraction,
 };

@@ -130,3 +130,9 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Editor config (personal)
+.zed/
+
+# macOS
+.DS_Store

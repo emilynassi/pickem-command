@@ -5,6 +5,7 @@ import path from 'node:path';
 
 const token = config.DISCORD_TOKEN;
 const clientId = config.DISCORD_CLIENT_ID!;
+const guildId = config.GUILD_ID;
 
 const commands: any[] = [];
 // Grab all the command folders from the commands directory you created earlier
@@ -46,10 +47,22 @@ const rest = new REST().setToken(token);
       `Started refreshing ${commands.length} application (/) commands.`
     );
 
-    // The put method is used to fully refresh all commands in the guild with the current set
-    const data: any = await rest.put(Routes.applicationCommands(clientId), {
-      body: commands,
-    });
+    let data: any;
+    // Use guild commands in development for instant updates, global commands in production
+    if (guildId) {
+      console.log(`Deploying to guild: ${guildId}`);
+      data = await rest.put(
+        Routes.applicationGuildCommands(clientId, guildId),
+        {
+          body: commands,
+        }
+      );
+    } else {
+      console.log('Deploying globally (may take up to 1 hour)');
+      data = await rest.put(Routes.applicationCommands(clientId), {
+        body: commands,
+      });
+    }
     console.log(
       `Successfully reloaded ${data.length} application (/) commands.`
     );

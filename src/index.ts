@@ -4,7 +4,8 @@ import {
   GatewayIntentBits,
   Collection,
   MessageFlags,
-  CommandInteraction,
+  ChatInputCommandInteraction,
+  AutocompleteInteraction,
 } from 'discord.js';
 import { config } from './config';
 import fs from 'node:fs';
@@ -15,7 +16,11 @@ import logger from './utils/logger';
 interface ExtendedClient extends Client {
   commands: Collection<
     string,
-    { data: any; execute: (interaction: CommandInteraction) => Promise<void> }
+    {
+      data: any;
+      execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+      autocomplete?: (interaction: AutocompleteInteraction) => Promise<void>;
+    }
   >;
 }
 
@@ -93,6 +98,21 @@ client.on(Events.InteractionCreate, async (interaction) => {
         // If we can't reply (e.g., interaction token expired), just log it
         logger.error('Failed to send error message to user', { replyError });
       }
+    }
+  } else if (interaction.isAutocomplete()) {
+    const command = client.commands.get(interaction.commandName);
+
+    if (!command || !command.autocomplete) {
+      logger.error(`No autocomplete handler for ${interaction.commandName} was found.`);
+      return;
+    }
+
+    try {
+      await command.autocomplete(interaction);
+    } catch (error) {
+      logger.error(`Error handling autocomplete for command: ${interaction.commandName}`, {
+        error,
+      });
     }
   } else if (interaction.isButton()) {
     logger.info(`Handling button interaction: ${interaction.customId}`);

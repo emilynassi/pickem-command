@@ -1,5 +1,5 @@
 import { voteMessages } from '../utils/votedMessages';
-import { votes } from '../commands/utility/vote';
+import { votes, votePlayers } from '../commands/utility/vote';
 import { GameBoxScore, RangersPlayerStats } from '../types/boxscore';
 import { fetchCurrentGameId } from './findGame';
 import fs from 'fs';
@@ -70,23 +70,27 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
         }
 
         const promptTOI = votePrompts.get(channel.id) || 'N/A';
+        const playerInfo = votePlayers.get(channel.id);
+        const sweaterNumber = playerInfo?.sweaterNumber;
+        const playerName = playerInfo?.name || 'Unknown Player';
 
-        // Create Rangers player stats instance to check if player #73 is in the lineup
+        // Create Rangers player stats instance to check if the selected player is in the lineup
         const rangerStats = new RangersPlayerStats(data);
 
-        // Look for player #73 across all position groups
-        const player73 =
-          rangerStats.forwards.find(p => p.sweaterNumber === 73) ||
-          rangerStats.defense.find(p => p.sweaterNumber === 73) ||
-          rangerStats.goalies.find(p => p.sweaterNumber === 73);
+        // Look for the selected player across all position groups
+        const selectedPlayer = sweaterNumber
+          ? rangerStats.forwards.find(p => p.sweaterNumber === sweaterNumber) ||
+            rangerStats.defense.find(p => p.sweaterNumber === sweaterNumber) ||
+            rangerStats.goalies.find(p => p.sweaterNumber === sweaterNumber)
+          : null;
 
         let embed: EmbedBuilder;
 
         // If player is not in lineup, create a cancellation embed
-        if (!player73) {
+        if (!selectedPlayer) {
           embed = new EmbedBuilder()
             .setTitle('Voting Canceled')
-            .setDescription(`Vote for predicted TOI: **${promptTOI}** has been canceled because Matt Rempe is not playing today.`)
+            .setDescription(`Vote for predicted TOI: **${promptTOI}** has been canceled because ${playerName} is not playing today.`)
             .setColor(0xFF0000)
             .addFields(
               { name: 'Over votes', value: upvoters, inline: true },
