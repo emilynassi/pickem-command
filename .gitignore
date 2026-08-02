@@ -136,3 +136,6 @@ dist
 
 # macOS
 .DS_Store
+
+# Local leaderboard data (real user IDs; replaced by DB persistence eventually)
+winners.csv
