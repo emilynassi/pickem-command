@@ -1,10 +1,10 @@
 import {
   SlashCommandBuilder,
-  CommandInteraction,
+  ChatInputCommandInteraction,
   EmbedBuilder,
 } from 'discord.js';
 import { voteMessages } from '../../utils/votedMessages';
-import { votes } from './vote';
+import { votes, votePlayers } from './vote';
 import { fetchCurrentGameId } from '../../utils/findGame';
 import fs from 'fs';
 import path from 'path';
@@ -20,7 +20,7 @@ export const data = new SlashCommandBuilder()
   .setName('checkwinner')
   .setDescription('Announce winners for your over/under TOI prediction.');
 
-export async function execute(interaction: CommandInteraction) {
+export async function execute(interaction: ChatInputCommandInteraction) {
   // Defer reply immediately since we'll be making API calls
   await interaction.deferReply();
 
@@ -96,23 +96,32 @@ export async function execute(interaction: CommandInteraction) {
     return;
   }
 
+  // Look up the selected player for this channel.
+  const playerInfo = votePlayers.get(channelId);
+  if (!playerInfo) {
+    await interaction.editReply({
+      content: 'No player selection found for this channel.',
+    });
+    return;
+  }
+
   // Create a RangersPlayerStats instance.
   const rangerStats = new RangersPlayerStats(boxData);
 
-  // Search forwards, defense, and goalies arrays for player with sweater number 73.
-  let player73 =
-    rangerStats.forwards.find((p) => p.sweaterNumber === 73) ||
-    rangerStats.defense.find((p) => p.sweaterNumber === 73) ||
-    rangerStats.goalies.find((p) => p.sweaterNumber === 73);
+  // Search forwards, defense, and goalies arrays for the selected player.
+  const player =
+    rangerStats.forwards.find((p) => p.sweaterNumber === playerInfo.sweaterNumber) ||
+    rangerStats.defense.find((p) => p.sweaterNumber === playerInfo.sweaterNumber) ||
+    rangerStats.goalies.find((p) => p.sweaterNumber === playerInfo.sweaterNumber);
 
   let actualTOI = '';
-  if (player73 && player73.toi) {
-    actualTOI = player73.toi;
+  if (player && player.toi) {
+    actualTOI = player.toi;
   }
 
   if (!actualTOI) {
     await interaction.editReply({
-      content: 'Could not find the actual TOI for sweater number 73.',
+      content: `Could not find the actual TOI for ${playerInfo.name}.`,
     });
     return;
   }

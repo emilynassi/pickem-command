@@ -130,3 +130,12 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Editor config (personal)
+.zed/
+
+# macOS
+.DS_Store
+
+# Local leaderboard data (real user IDs; replaced by DB persistence eventually)
+winners.csv
