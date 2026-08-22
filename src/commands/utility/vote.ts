@@ -14,14 +14,16 @@ import { voteMessages } from '../../utils/votedMessages';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
 import { fetchCurrentGameId } from '../../utils/findGame';
 import { fetchRangersRoster, formatPlayerLabel } from '../../utils/roster';
-
-export const votes = new Map<
-  string,
-  { upvotes: Set<string>; downvotes: Set<string> }
->();
-
-export const votePrompts = new Map<string, string>();
-export const votePlayers = new Map<string, { sweaterNumber: number; name: string }>();
+import { resolveUsernames } from '../../utils/discord';
+import {
+  getVote,
+  setVote,
+  setVotePrompt,
+  setVotePlayer,
+  setLockInterval,
+  clearLockInterval,
+} from '../../state/voteState';
+import logger from '../../utils/logger';
 
 export const data = new SlashCommandBuilder()
   .setName('vote')
@@ -78,7 +80,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   // Store the selected player for this channel
-  votePlayers.set(interaction.channelId, { sweaterNumber, name: playerName });
+  setVotePlayer(interaction.channelId, { sweaterNumber, name: playerName });
 
   // Build an embed for the vote prompt.
   const voteEmbed = new EmbedBuilder()
@@ -115,17 +117,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const message = await interaction.fetchReply();
 
   voteMessages.set(interaction.channelId, message.id);
-  votePrompts.set(interaction.channelId, prompt);
-  console.log(votePrompts);
-  votes.set(message.id, { upvotes: new Set(), downvotes: new Set() });
+  setVotePrompt(interaction.channelId, prompt);
+  logger.info(`Vote prompt set for channel ${interaction.channelId}: ${prompt}`);
+  setVote(message.id, { upvotes: new Set(), downvotes: new Set() });
 
-  // Periodically check the API to lock votes.
+  // Periodically check the API to lock votes. Clears any interval already
+  // running for this channel so re-running /vote can't start a second one.
   const intervalId = setInterval(async () => {
     const locked = await checkApiAndLockVotes(interaction.channel);
     if (locked) {
-      clearInterval(intervalId);
+      clearLockInterval(interaction.channelId);
     }
   }, 60000);
+  setLockInterval(interaction.channelId, intervalId);
 }
 
 export async function handleButtonInteraction(interaction: ButtonInteraction) {
@@ -133,7 +137,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   const messageId = voteMessages.get(channelId);
   if (!messageId || interaction.message.id !== messageId) return;
 
-  const voteData = votes.get(messageId);
+  const voteData = getVote(messageId);
   if (
     interaction.customId === 'upvote' ||
     interaction.customId === 'downvote'
@@ -200,25 +204,13 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   } else if (interaction.customId === 'showVotes') {
     if (!voteData) return;
 
-    const upvoterNames = await Promise.all(
-      Array.from(voteData.upvotes).map(async (id) => {
-        try {
-          const user = await interaction.client.users.fetch(id);
-          return user.username;
-        } catch {
-          return id;
-        }
-      })
+    const upvoterNames = await resolveUsernames(
+      interaction.client,
+      Array.from(voteData.upvotes)
     );
-    const downvoterNames = await Promise.all(
-      Array.from(voteData.downvotes).map(async (id) => {
-        try {
-          const user = await interaction.client.users.fetch(id);
-          return user.username;
-        } catch {
-          return id;
-        }
-      })
+    const downvoterNames = await resolveUsernames(
+      interaction.client,
+      Array.from(voteData.downvotes)
     );
 
     const response = `**Current Votes**\n⬆️ Over: ${

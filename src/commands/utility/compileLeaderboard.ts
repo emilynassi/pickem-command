@@ -10,6 +10,7 @@ import {
 } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
+import { resolveUsernames } from '../../utils/discord';
 
 export const data = new SlashCommandBuilder()
   .setName('compileleaderboard')
@@ -64,20 +65,16 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     }
 
     // Fetch usernames from Discord
-    const leaderboardEntries = await Promise.all(
-      sortedUsers.map(async ([userId, wins], index) => {
-        try {
-          const user = await interaction.client.users.fetch(userId);
-          return `${index + 1}. ${user.username} - **${wins}** ${
-            wins === 1 ? 'win' : 'wins'
-          }`;
-        } catch {
-          return `${index + 1}. <@${userId}> - **${wins}** ${
-            wins === 1 ? 'win' : 'wins'
-          }`;
-        }
-      })
+    const usernames = await resolveUsernames(
+      interaction.client,
+      sortedUsers.map(([userId]) => userId),
+      (id) => `<@${id}>`
     );
+    const leaderboardEntries = sortedUsers.map(([, wins], index) => {
+      return `${index + 1}. ${usernames[index]} - **${wins}** ${
+        wins === 1 ? 'win' : 'wins'
+      }`;
+    });
 
     // Pagination settings
     const ENTRIES_PER_PAGE = 10;
