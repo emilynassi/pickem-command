@@ -9,6 +9,7 @@ import { eq } from 'drizzle-orm';
 import { db } from './client';
 import { prompts, winners } from './schema';
 import logger from '../utils/logger';
+import { GAME_TYPE_REGULAR_SEASON, getCurrentSeason } from '../utils/season';
 
 const CSV_PATH = path.resolve(__dirname, '../../winners.csv');
 
@@ -54,6 +55,9 @@ async function main() {
     const firstRow = rows.find((row) => row.promptId === legacyPromptId);
     const wonAt = new Date(firstRow!.wonAt);
 
+    // No game data survives for legacy rows, so season is inferred from the
+    // win date and game type defaults to regular season (the only kind this
+    // bot tracked before season/gameType existed).
     await db.insert(prompts).values({
       id: legacyPromptId,
       discordMessageId: null,
@@ -63,6 +67,8 @@ async function main() {
       playerName: 'Unknown (legacy import)',
       promptText: 'Legacy import from winners.csv',
       gameId: null,
+      season: getCurrentSeason(wonAt),
+      gameType: GAME_TYPE_REGULAR_SEASON,
       createdAt: wonAt,
       createdBy: 'legacy-import',
       lockedAt: wonAt,

@@ -11,7 +11,7 @@ import {
   EmbedBuilder,
 } from 'discord.js';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
-import { fetchCurrentGameId } from '../../utils/findGame';
+import { fetchCurrentGame } from '../../utils/findGame';
 import { fetchRangersRoster, formatPlayerLabel } from '../../utils/roster';
 import { resolveUsernames } from '../../utils/discord';
 import {
@@ -55,8 +55,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
   // Return if no game is found.
-  const gameId = await fetchCurrentGameId();
-  if (!gameId) {
+  const game = await fetchCurrentGame();
+  if (!game) {
     await interaction.editReply({
       content: 'No game found today.',
     });
@@ -118,7 +118,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     playerSweaterNumber: sweaterNumber,
     playerName,
     promptText: prompt,
-    gameId: String(gameId),
+    gameId: String(game.id),
+    season: game.season,
+    gameType: game.gameType,
     createdBy: interaction.user.id,
   });
   logger.info(`Vote prompt set for channel ${interaction.channelId}: ${prompt}`);

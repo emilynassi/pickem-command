@@ -12,6 +12,8 @@ export interface CreatePromptParams {
   playerName: string;
   promptText: string;
   gameId: string | null;
+  season: number;
+  gameType: number;
   createdBy: string;
 }
 
@@ -122,12 +124,25 @@ export async function recordWinners(
     .onConflictDoNothing();
 }
 
-export async function getWinCounts(): Promise<
-  { userId: string; wins: number }[]
-> {
+export interface WinCountsFilter {
+  season: number;
+  // Omit (or leave undefined) to combine all game types for the season.
+  gameType?: number;
+}
+
+export async function getWinCounts(
+  filter: WinCountsFilter
+): Promise<{ userId: string; wins: number }[]> {
+  const conditions = [eq(prompts.season, filter.season)];
+  if (filter.gameType !== undefined) {
+    conditions.push(eq(prompts.gameType, filter.gameType));
+  }
+
   return db
     .select({ userId: winners.userId, wins: sql<number>`count(*)::int` })
     .from(winners)
+    .innerJoin(prompts, eq(winners.promptId, prompts.id))
+    .where(and(...conditions))
     .groupBy(winners.userId)
     .orderBy(desc(sql`count(*)`));
 }

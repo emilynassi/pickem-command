@@ -8,6 +8,8 @@ CREATE TABLE "prompts" (
 	"player_name" text NOT NULL,
 	"prompt_text" text NOT NULL,
 	"game_id" text,
+	"season" integer NOT NULL,
+	"game_type" integer NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"created_by" text NOT NULL,
 	"locked_at" timestamp with time zone,

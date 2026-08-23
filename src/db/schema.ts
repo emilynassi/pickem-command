@@ -23,6 +23,10 @@ export const prompts = pgTable('prompts', {
   playerName: text('player_name').notNull(),
   promptText: text('prompt_text').notNull(),
   gameId: text('game_id'),
+  // NHL season id, e.g. 20252026 for the 2025-26 season.
+  season: integer('season').notNull(),
+  // 1 = preseason, 2 = regular season, 3 = postseason (NHL API convention).
+  gameType: integer('game_type').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),

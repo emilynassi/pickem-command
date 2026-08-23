@@ -1,5 +1,5 @@
 {
-  "id": "923698c9-733b-48cf-ad36-279855425804",
+  "id": "a816a6ba-3b7a-480f-8043-b4eae943f6cb",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -55,6 +55,18 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "season": {
+          "name": "season",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "game_type": {
+          "name": "game_type",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",

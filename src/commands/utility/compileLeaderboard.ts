@@ -1,6 +1,7 @@
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
+  CommandInteractionOptionResolver,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
@@ -10,25 +11,84 @@ import {
 } from 'discord.js';
 import { resolveUsernames } from '../../utils/discord';
 import { getWinCounts } from '../../db/voteRepository';
+import {
+  GAME_TYPE_BY_FILTER,
+  GameTypeFilter,
+  formatSeasonLabel,
+  getCurrentSeason,
+  parseSeasonLabel,
+} from '../../utils/season';
+
+const GAME_TYPE_LABELS: Record<GameTypeFilter, string> = {
+  all: 'All Games',
+  preseason: 'Preseason',
+  regular: 'Regular Season',
+  postseason: 'Postseason',
+};
 
 export const data = new SlashCommandBuilder()
   .setName('compileleaderboard')
-  .setDescription('Compile the leaderboard for the current season');
+  .setDescription('Compile the leaderboard for a season')
+  .addStringOption((option) =>
+    option
+      .setName('season')
+      .setDescription('Season to show, e.g. "2025-26" (defaults to the current season)')
+      .setRequired(false)
+  )
+  .addStringOption((option) =>
+    option
+      .setName('gametype')
+      .setDescription('Game type to filter by (defaults to all games combined)')
+      .setRequired(false)
+      .addChoices(
+        { name: 'All Games', value: 'all' },
+        { name: 'Preseason', value: 'preseason' },
+        { name: 'Regular Season', value: 'regular' },
+        { name: 'Postseason', value: 'postseason' }
+      )
+  );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
   // Defer reply since we'll be making API calls
   await interaction.deferReply();
 
+  const options = interaction.options as CommandInteractionOptionResolver;
+  const seasonInput = options.getString('season');
+  const gameTypeFilter = (options.getString('gametype') ?? 'all') as GameTypeFilter;
+
+  let season: number;
+  if (seasonInput) {
+    const parsed = parseSeasonLabel(seasonInput);
+    if (!parsed) {
+      await interaction.editReply({
+        content: 'Invalid season format. Try something like "2025-26".',
+      });
+      return;
+    }
+    season = parsed;
+  } else {
+    season = getCurrentSeason();
+  }
+
+  const seasonLabel = formatSeasonLabel(season);
+  const gameTypeLabel = GAME_TYPE_LABELS[gameTypeFilter];
+
   try {
     // Read wins data from the database, sorted by win count descending.
-    const winCounts = await getWinCounts();
+    const winCounts = await getWinCounts({
+      season,
+      gameType:
+        gameTypeFilter === 'all'
+          ? undefined
+          : GAME_TYPE_BY_FILTER[gameTypeFilter],
+    });
     const sortedUsers: [string, number][] = winCounts.map(
       ({ userId, wins }) => [userId, wins]
     );
 
     if (sortedUsers.length === 0) {
       await interaction.editReply({
-        content: 'No wins recorded yet for this season.',
+        content: `No wins recorded yet for the ${seasonLabel} season (${gameTypeLabel}).`,
       });
       return;
     }
@@ -56,7 +116,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
       const pageEntries = leaderboardEntries.slice(start, end);
 
       return new EmbedBuilder()
-        .setTitle('🏆 Season Leaderboard 🏆')
+        .setTitle(`🏆 ${seasonLabel} Leaderboard — ${gameTypeLabel} 🏆`)
         .setDescription(pageEntries.join('\n'))
         .setColor(0xffd700)
         .setFooter({ text: `Page ${page + 1} of ${totalPages}` })
