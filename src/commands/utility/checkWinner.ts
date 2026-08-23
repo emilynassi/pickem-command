@@ -4,15 +4,15 @@ import {
   EmbedBuilder,
 } from 'discord.js';
 import { voteMessages } from '../../utils/votedMessages';
-import { votes, votePlayers } from './vote';
+import { getVote, getVotePrompt, getVotePlayer } from '../../state/voteState';
 import { fetchCurrentGameId } from '../../utils/findGame';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { GameBoxScore } from '../../types/boxscore';
 import { RangersPlayerStats } from '../../types/boxscore';
-import { parseTOI } from '../../utils/helpers';
-import { votePrompts } from './vote';
+import { parseTOI, findPlayerBySweater } from '../../utils/helpers';
+import { resolveUsernames } from '../../utils/discord';
 
 dotenv.config();
 
@@ -42,7 +42,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   // Extract the prompt TOI from the vote prompt.
-  const votePrompt = votePrompts.get(channelId);
+  const votePrompt = getVotePrompt(channelId);
   if (!votePrompt) {
     await interaction.editReply({
       content: 'Original vote prompt not found.',
@@ -97,7 +97,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   // Look up the selected player for this channel.
-  const playerInfo = votePlayers.get(channelId);
+  const playerInfo = getVotePlayer(channelId);
   if (!playerInfo) {
     await interaction.editReply({
       content: 'No player selection found for this channel.',
@@ -109,10 +109,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const rangerStats = new RangersPlayerStats(boxData);
 
   // Search forwards, defense, and goalies arrays for the selected player.
-  const player =
-    rangerStats.forwards.find((p) => p.sweaterNumber === playerInfo.sweaterNumber) ||
-    rangerStats.defense.find((p) => p.sweaterNumber === playerInfo.sweaterNumber) ||
-    rangerStats.goalies.find((p) => p.sweaterNumber === playerInfo.sweaterNumber);
+  const player = findPlayerBySweater(rangerStats, playerInfo.sweaterNumber);
 
   let actualTOI = '';
   if (player && player.toi) {
@@ -135,13 +132,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     winningSet = undefined;
   } else if (actualSeconds < promptSeconds) {
     // Under wins -> "downvotes" represent Under prediction.
-    const voteData = votes.get(messageId);
+    const voteData = getVote(messageId);
     if (voteData) {
       winningSet = voteData.downvotes;
     }
   } else {
     // Over wins -> "upvotes" represent Over prediction.
-    const voteData = votes.get(messageId);
+    const voteData = getVote(messageId);
     if (voteData) {
       winningSet = voteData.upvotes;
     }
@@ -149,15 +146,9 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
   let winnerNames: string[] = [];
   if (winningSet && winningSet.size > 0) {
-    winnerNames = await Promise.all(
-      Array.from(winningSet).map(async (userId) => {
-        try {
-          const user = await interaction.client.users.fetch(userId);
-          return user.username;
-        } catch {
-          return userId;
-        }
-      })
+    winnerNames = await resolveUsernames(
+      interaction.client,
+      Array.from(winningSet)
     );
   }
 

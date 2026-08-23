@@ -9,6 +9,7 @@ import {
 import { fetchCurrentGameId, fetchBoxScore } from '../../utils/findGame';
 import { RangersPlayerStats } from '../../types/boxscore';
 import { fetchRangersRoster, formatPlayerLabel } from '../../utils/roster';
+import { findPlayerBySweater } from '../../utils/helpers';
 
 export const data = new SlashCommandBuilder()
   .setName('checkcurrenttoi')
@@ -70,10 +71,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const rangerStats = new RangersPlayerStats(boxScore);
 
   // Find the selected player's stats
-  const player =
-    rangerStats.forwards.find((p) => p.sweaterNumber === sweaterNumber) ||
-    rangerStats.defense.find((p) => p.sweaterNumber === sweaterNumber) ||
-    rangerStats.goalies.find((p) => p.sweaterNumber === sweaterNumber);
+  const player = findPlayerBySweater(rangerStats, sweaterNumber);
 
   if (!player) {
     await interaction.editReply({

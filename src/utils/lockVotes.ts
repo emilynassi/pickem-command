@@ -1,12 +1,14 @@
 import { voteMessages } from '../utils/votedMessages';
-import { votes, votePlayers } from '../commands/utility/vote';
+import { getVote, getVotePrompt, getVotePlayer } from '../state/voteState';
 import { GameBoxScore, RangersPlayerStats } from '../types/boxscore';
 import { fetchCurrentGameId } from './findGame';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import { EmbedBuilder } from 'discord.js';
-import { votePrompts } from '../commands/utility/vote';
+import { resolveUsernames } from './discord';
+import { findPlayerBySweater } from './helpers';
+import logger from './logger';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -16,7 +18,7 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
     // Fetch the current game ID
     const gameId = await fetchCurrentGameId();
     if (!gameId) {
-      console.error('No current game ID found.');
+      logger.error('No current game ID found.');
       return false;
     }
 
@@ -41,36 +43,24 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
       const messageId = voteMessages.get(channel.id);
       if (messageId) {
         const message = await channel.messages.fetch(messageId);
-        const voteData = votes.get(messageId);
+        const voteData = getVote(messageId);
         let upvoters = 'None';
         let downvoters = 'None';
         if (voteData) {
-          const upvoterNames = await Promise.all(
-            Array.from(voteData.upvotes).map(async (id) => {
-              try {
-                const user = await channel.client.users.fetch(id);
-                return user.username;
-              } catch {
-                return id;
-              }
-            })
+          const upvoterNames = await resolveUsernames(
+            channel.client,
+            Array.from(voteData.upvotes)
           );
-          const downvoterNames = await Promise.all(
-            Array.from(voteData.downvotes).map(async (id) => {
-              try {
-                const user = await channel.client.users.fetch(id);
-                return user.username;
-              } catch {
-                return id;
-              }
-            })
+          const downvoterNames = await resolveUsernames(
+            channel.client,
+            Array.from(voteData.downvotes)
           );
           upvoters = upvoterNames.join(', ') || 'None';
           downvoters = downvoterNames.join(', ') || 'None';
         }
 
-        const promptTOI = votePrompts.get(channel.id) || 'N/A';
-        const playerInfo = votePlayers.get(channel.id);
+        const promptTOI = getVotePrompt(channel.id) || 'N/A';
+        const playerInfo = getVotePlayer(channel.id);
         const sweaterNumber = playerInfo?.sweaterNumber;
         const playerName = playerInfo?.name || 'Unknown Player';
 
@@ -79,9 +69,7 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
 
         // Look for the selected player across all position groups
         const selectedPlayer = sweaterNumber
-          ? rangerStats.forwards.find(p => p.sweaterNumber === sweaterNumber) ||
-            rangerStats.defense.find(p => p.sweaterNumber === sweaterNumber) ||
-            rangerStats.goalies.find(p => p.sweaterNumber === sweaterNumber)
+          ? findPlayerBySweater(rangerStats, sweaterNumber)
           : null;
 
         let embed: EmbedBuilder;
@@ -140,7 +128,7 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
       }
     }
   } catch (error) {
-    console.error('Failed to check API and lock votes:', error);
+    logger.error('Failed to check API and lock votes', { error });
     return true;
   }
   return false;
