@@ -21,17 +21,31 @@ services:
       - '8126:8126/tcp'
       - '8125:8125/udp'
 
+  postgres:
+    container_name: pickem-postgres
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER-pickem}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD-pickem}
+      - POSTGRES_DB=${POSTGRES_DB-pickem}
+    volumes:
+      - pickem-postgres-data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+
   discord-bot:
     container_name: pickem-command
     build: .
     depends_on:
       - dd-agent
+      - postgres
     ports:
       - '3000:3000'
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
       - GUILD_ID=${GUILD_ID}
+      - DATABASE_URL=${DATABASE_URL-postgres://pickem:pickem@postgres:5432/pickem}
       - PICKEM_COMMAND_VERSION=${PICKEM_COMMAND_VERSION-1.0.0}
       - PICKEM_COMMAND_SERVICE=${PICKEM_COMMAND_SERVICE-pickem-command}
       - DD_ENV=${DD_ENV-dev}
@@ -44,3 +58,6 @@ services:
       com.datadoghq.tags.env: '${DD_ENV-dev}'
       com.datadoghq.tags.service: '${PICKEM_COMMAND_SERVICE-pickem-command}'
       com.datadoghq.tags.version: '${PICKEM_COMMAND_VERSION-1.0.0}'
+
+volumes:
+  pickem-postgres-data:

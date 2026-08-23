@@ -8,9 +8,8 @@ import {
   ButtonInteraction,
   ComponentType,
 } from 'discord.js';
-import fs from 'fs';
-import path from 'path';
 import { resolveUsernames } from '../../utils/discord';
+import { getWinCounts } from '../../db/voteRepository';
 
 export const data = new SlashCommandBuilder()
   .setName('compileleaderboard')
@@ -21,40 +20,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
   try {
-    // Read wins data from CSV file
-    const csvFilePath = path.resolve(__dirname, '../../../winners.csv');
-
-    if (!fs.existsSync(csvFilePath)) {
-      await interaction.editReply({
-        content: 'No wins data found. The winners.csv file does not exist.',
-      });
-      return;
-    }
-
-    const csvContent = fs.readFileSync(csvFilePath, 'utf-8');
-    const lines = csvContent.trim().split('\n');
-
-    // Skip header row and extract userId column (3rd column, index 2)
-    const userIds: string[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue; // Skip empty lines
-
-      const columns = line.split(',');
-      if (columns.length >= 3 && columns[2]) {
-        userIds.push(columns[2]);
-      }
-    }
-
-    // Count occurrences of each user ID
-    const winCounts = new Map<string, number>();
-    userIds.forEach((userId) => {
-      winCounts.set(userId, (winCounts.get(userId) || 0) + 1);
-    });
-
-    // Sort by win count descending
-    const sortedUsers = Array.from(winCounts.entries()).sort(
-      (a, b) => b[1] - a[1]
+    // Read wins data from the database, sorted by win count descending.
+    const winCounts = await getWinCounts();
+    const sortedUsers: [string, number][] = winCounts.map(
+      ({ userId, wins }) => [userId, wins]
     );
 
     if (sortedUsers.length === 0) {

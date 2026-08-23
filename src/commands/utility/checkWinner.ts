@@ -3,8 +3,12 @@ import {
   ChatInputCommandInteraction,
   EmbedBuilder,
 } from 'discord.js';
-import { voteMessages } from '../../utils/votedMessages';
-import { getVote, getVotePrompt, getVotePlayer } from '../../state/voteState';
+import {
+  getLatestPromptForChannel,
+  getVoteCounts,
+  recordResult,
+  recordWinners,
+} from '../../db/voteRepository';
 import { fetchCurrentGameId } from '../../utils/findGame';
 import fs from 'fs';
 import path from 'path';
@@ -24,10 +28,10 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   // Defer reply immediately since we'll be making API calls
   await interaction.deferReply();
 
-  // Retrieve the active vote message.
+  // Retrieve the active vote prompt.
   const channelId = interaction.channelId;
-  const messageId = voteMessages.get(channelId);
-  if (!messageId) {
+  const prompt = await getLatestPromptForChannel(channelId);
+  if (!prompt) {
     await interaction.editReply({
       content: 'No active vote found for this channel.',
     });
@@ -41,17 +45,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  // Extract the prompt TOI from the vote prompt.
-  const votePrompt = getVotePrompt(channelId);
-  if (!votePrompt) {
-    await interaction.editReply({
-      content: 'Original vote prompt not found.',
-    });
-    return;
-  }
-
-  // Now votePrompt is directly "9:48", so we can validate it with:
-  const match = votePrompt.match(/^(\d{1,2}:\d{2})$/);
+  // Now prompt.promptText is directly "9:48", so we can validate it with:
+  const match = prompt.promptText.match(/^(\d{1,2}:\d{2})$/);
   if (!match) {
     await interaction.editReply({
       content: 'The stored TOI is not in the correct format.',
@@ -97,8 +92,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   }
 
   // Look up the selected player for this channel.
-  const playerInfo = getVotePlayer(channelId);
-  if (!playerInfo) {
+  if (prompt.playerSweaterNumber == null) {
     await interaction.editReply({
       content: 'No player selection found for this channel.',
     });
@@ -109,7 +103,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   const rangerStats = new RangersPlayerStats(boxData);
 
   // Search forwards, defense, and goalies arrays for the selected player.
-  const player = findPlayerBySweater(rangerStats, playerInfo.sweaterNumber);
+  const player = findPlayerBySweater(rangerStats, prompt.playerSweaterNumber);
 
   let actualTOI = '';
   if (player && player.toi) {
@@ -118,7 +112,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 
   if (!actualTOI) {
     await interaction.editReply({
-      content: `Could not find the actual TOI for ${playerInfo.name}.`,
+      content: `Could not find the actual TOI for ${prompt.playerName}.`,
     });
     return;
   }
@@ -126,23 +120,25 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   // Parse times and determine winners.
   const promptSeconds = parseTOI(promptTOI);
   const actualSeconds = parseTOI(actualTOI);
+  const voteCounts = await getVoteCounts(prompt.id);
+
+  let winningChoice: 'over' | 'under' | null = null;
   let winningSet: Set<string> | undefined;
 
   if (promptSeconds === actualSeconds) {
     winningSet = undefined;
   } else if (actualSeconds < promptSeconds) {
     // Under wins -> "downvotes" represent Under prediction.
-    const voteData = getVote(messageId);
-    if (voteData) {
-      winningSet = voteData.downvotes;
-    }
+    winningChoice = 'under';
+    winningSet = voteCounts.downvotes;
   } else {
     // Over wins -> "upvotes" represent Over prediction.
-    const voteData = getVote(messageId);
-    if (voteData) {
-      winningSet = voteData.upvotes;
-    }
+    winningChoice = 'over';
+    winningSet = voteCounts.upvotes;
   }
+
+  await recordResult(prompt.id, actualTOI, winningChoice);
+  await recordWinners(prompt.id, Array.from(winningSet ?? []));
 
   let winnerNames: string[] = [];
   if (winningSet && winningSet.size > 0) {
