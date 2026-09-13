@@ -10,6 +10,8 @@
     "commands:dev": "NODE_ENV=development ts-node src/deploy-commands.ts",
     "mock:live": "cp src/mocks/boxscore-live.json src/mocks/boxscore.json && echo 'Mock game set to LIVE'",
     "mock:finished": "cp src/mocks/boxscore-finished.json src/mocks/boxscore.json && echo 'Mock game set to FINISHED'",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "lint": "eslint . --fix",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -20,6 +22,8 @@
     "dd-trace": "^5.47.0",
     "discord.js": "^14.17.3",
     "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9",
     "winston": "^3.17.0"
   },
   "devDependencies": {
@@ -27,6 +31,7 @@
     "@types/node": "^22.13.0",
     "@typescript-eslint/eslint-plugin": "^8.23.0",
     "@typescript-eslint/parser": "^8.23.0",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.19.0",
     "jiti": "^2.4.2",
     "ts-node": "^10.9.2",

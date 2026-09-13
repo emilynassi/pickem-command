@@ -21,17 +21,36 @@ services:
       - '8126:8126/tcp'
       - '8125:8125/udp'
 
+  postgres:
+    container_name: pickem-postgres
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER-pickem}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD-pickem}
+      - POSTGRES_DB=${POSTGRES_DB-pickem}
+    volumes:
+      - pickem-postgres-data:/var/lib/postgresql/data
+    # Bound to loopback only: the bot reaches this over the internal compose
+    # network at `postgres:5432` regardless, and this mapping exists just so
+    # `npm run dev`/`db:migrate` on the host machine can reach it via
+    # localhost. Binding to 127.0.0.1 means a droplet's public IP never
+    # exposes Postgres, even if its firewall allows 5432 through.
+    ports:
+      - '127.0.0.1:5432:5432'
+
   discord-bot:
     container_name: pickem-command
     build: .
     depends_on:
       - dd-agent
+      - postgres
     ports:
       - '3000:3000'
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
       - GUILD_ID=${GUILD_ID}
+      - DATABASE_URL=${DATABASE_URL-postgres://pickem:pickem@postgres:5432/pickem}
       - PICKEM_COMMAND_VERSION=${PICKEM_COMMAND_VERSION-1.0.0}
       - PICKEM_COMMAND_SERVICE=${PICKEM_COMMAND_SERVICE-pickem-command}
       - DD_ENV=${DD_ENV-dev}
@@ -44,3 +63,6 @@ services:
       com.datadoghq.tags.env: '${DD_ENV-dev}'
       com.datadoghq.tags.service: '${PICKEM_COMMAND_SERVICE-pickem-command}'
       com.datadoghq.tags.version: '${PICKEM_COMMAND_VERSION-1.0.0}'
+
+volumes:
+  pickem-postgres-data:

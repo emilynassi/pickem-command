@@ -10,19 +10,17 @@ import {
   MessageFlags,
   EmbedBuilder,
 } from 'discord.js';
-import { voteMessages } from '../../utils/votedMessages';
 import { checkApiAndLockVotes } from '../../utils/lockVotes';
-import { fetchCurrentGameId } from '../../utils/findGame';
+import { fetchCurrentGame } from '../../utils/findGame';
 import { fetchRangersRoster, formatPlayerLabel } from '../../utils/roster';
 import { resolveUsernames } from '../../utils/discord';
 import {
-  getVote,
-  setVote,
-  setVotePrompt,
-  setVotePlayer,
-  setLockInterval,
-  clearLockInterval,
-} from '../../state/voteState';
+  createPrompt,
+  getPromptByMessageId,
+  getVoteCounts,
+  setUserVote,
+} from '../../db/voteRepository';
+import { setLockInterval, clearLockInterval } from '../../state/voteState';
 import logger from '../../utils/logger';
 
 export const data = new SlashCommandBuilder()
@@ -57,8 +55,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply();
 
   // Return if no game is found.
-  const gameId = await fetchCurrentGameId();
-  if (!gameId) {
+  const game = await fetchCurrentGame();
+  if (!game) {
     await interaction.editReply({
       content: 'No game found today.',
     });
@@ -78,9 +76,6 @@ export async function execute(interaction: ChatInputCommandInteraction) {
     });
     return;
   }
-
-  // Store the selected player for this channel
-  setVotePlayer(interaction.channelId, { sweaterNumber, name: playerName });
 
   // Build an embed for the vote prompt.
   const voteEmbed = new EmbedBuilder()
@@ -116,10 +111,19 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   // Fetch the reply message after sending the reply.
   const message = await interaction.fetchReply();
 
-  voteMessages.set(interaction.channelId, message.id);
-  setVotePrompt(interaction.channelId, prompt);
+  await createPrompt({
+    discordMessageId: message.id,
+    channelId: interaction.channelId,
+    guildId: interaction.guildId!,
+    playerSweaterNumber: sweaterNumber,
+    playerName,
+    promptText: prompt,
+    gameId: String(game.id),
+    season: game.season,
+    gameType: game.gameType,
+    createdBy: interaction.user.id,
+  });
   logger.info(`Vote prompt set for channel ${interaction.channelId}: ${prompt}`);
-  setVote(message.id, { upvotes: new Set(), downvotes: new Set() });
 
   // Periodically check the API to lock votes. Clears any interval already
   // running for this channel so re-running /vote can't start a second one.
@@ -133,48 +137,31 @@ export async function execute(interaction: ChatInputCommandInteraction) {
 }
 
 export async function handleButtonInteraction(interaction: ButtonInteraction) {
-  const channelId = interaction.channelId;
-  const messageId = voteMessages.get(channelId);
-  if (!messageId || interaction.message.id !== messageId) return;
+  const prompt = await getPromptByMessageId(interaction.message.id);
+  if (!prompt) return;
 
-  const voteData = getVote(messageId);
   if (
     interaction.customId === 'upvote' ||
     interaction.customId === 'downvote'
   ) {
     const userId = interaction.user.id;
-    if (voteData) {
-      const alreadyUpvoted = voteData.upvotes.has(userId);
-      const alreadyDownvoted = voteData.downvotes.has(userId);
+    const choice = interaction.customId === 'upvote' ? 'over' : 'under';
+    const result = await setUserVote(prompt.id, userId, choice);
 
-      // If the user clicked the same vote, inform them.
-      if (
-        (interaction.customId === 'upvote' && alreadyUpvoted) ||
-        (interaction.customId === 'downvote' && alreadyDownvoted)
-      ) {
-        await interaction.reply({
-          content: 'Your vote remains unchanged.',
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
+    // If the user clicked the same vote, inform them.
+    if (result === 'unchanged') {
+      await interaction.reply({
+        content: 'Your vote remains unchanged.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
 
-      // If the user previously voted the opposite direction, remove it.
-      if (interaction.customId === 'upvote' && alreadyDownvoted) {
-        voteData.downvotes.delete(userId);
-      } else if (interaction.customId === 'downvote' && alreadyUpvoted) {
-        voteData.upvotes.delete(userId);
-      }
-
-      // Record the new vote.
-      if (interaction.customId === 'upvote') {
-        voteData.upvotes.add(userId);
-      } else if (interaction.customId === 'downvote') {
-        voteData.downvotes.add(userId);
-      }
-
-      if (!interaction.channel || !('messages' in interaction.channel)) return;
-      const message = await interaction.channel.messages.fetch(messageId);
+    if (interaction.channel && 'messages' in interaction.channel) {
+      const message = await interaction.channel.messages.fetch(
+        interaction.message.id
+      );
+      const voteCounts = await getVoteCounts(prompt.id);
 
       // Rebuild the embed with updated vote counts.
       let updatedEmbed: EmbedBuilder;
@@ -186,8 +173,12 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
           .setColor(0x0099ff);
       }
       updatedEmbed.setFields(
-        { name: '⬆️ Over', value: `${voteData.upvotes.size}`, inline: true },
-        { name: '⬇️ Under', value: `${voteData.downvotes.size}`, inline: true }
+        { name: '⬆️ Over', value: `${voteCounts.upvotes.size}`, inline: true },
+        {
+          name: '⬇️ Under',
+          value: `${voteCounts.downvotes.size}`,
+          inline: true,
+        }
       );
 
       // Update the message with the new embed.
@@ -202,15 +193,15 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
       flags: MessageFlags.Ephemeral,
     });
   } else if (interaction.customId === 'showVotes') {
-    if (!voteData) return;
+    const voteCounts = await getVoteCounts(prompt.id);
 
     const upvoterNames = await resolveUsernames(
       interaction.client,
-      Array.from(voteData.upvotes)
+      Array.from(voteCounts.upvotes)
     );
     const downvoterNames = await resolveUsernames(
       interaction.client,
-      Array.from(voteData.downvotes)
+      Array.from(voteCounts.downvotes)
     );
 
     const response = `**Current Votes**\n⬆️ Over: ${

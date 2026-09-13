@@ -1,5 +1,8 @@
-import { voteMessages } from '../utils/votedMessages';
-import { getVote, getVotePrompt, getVotePlayer } from '../state/voteState';
+import {
+  getLatestPromptForChannel,
+  getVoteCounts,
+  lockPrompt,
+} from '../db/voteRepository';
 import { GameBoxScore, RangersPlayerStats } from '../types/boxscore';
 import { fetchCurrentGameId } from './findGame';
 import fs from 'fs';
@@ -40,29 +43,28 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
       data.gameState === 'OFF' ||
       data.gameState === 'FINAL'
     ) {
-      const messageId = voteMessages.get(channel.id);
-      if (messageId) {
-        const message = await channel.messages.fetch(messageId);
-        const voteData = getVote(messageId);
-        let upvoters = 'None';
-        let downvoters = 'None';
-        if (voteData) {
-          const upvoterNames = await resolveUsernames(
-            channel.client,
-            Array.from(voteData.upvotes)
-          );
-          const downvoterNames = await resolveUsernames(
-            channel.client,
-            Array.from(voteData.downvotes)
-          );
-          upvoters = upvoterNames.join(', ') || 'None';
-          downvoters = downvoterNames.join(', ') || 'None';
-        }
+      const prompt = await getLatestPromptForChannel(channel.id);
+      if (prompt && prompt.discordMessageId) {
+        const message = await channel.messages.fetch(prompt.discordMessageId);
+        const voteCounts = await getVoteCounts(prompt.id);
+        const upvoters =
+          (
+            await resolveUsernames(
+              channel.client,
+              Array.from(voteCounts.upvotes)
+            )
+          ).join(', ') || 'None';
+        const downvoters =
+          (
+            await resolveUsernames(
+              channel.client,
+              Array.from(voteCounts.downvotes)
+            )
+          ).join(', ') || 'None';
 
-        const promptTOI = getVotePrompt(channel.id) || 'N/A';
-        const playerInfo = getVotePlayer(channel.id);
-        const sweaterNumber = playerInfo?.sweaterNumber;
-        const playerName = playerInfo?.name || 'Unknown Player';
+        const promptTOI = prompt.promptText || 'N/A';
+        const sweaterNumber = prompt.playerSweaterNumber ?? undefined;
+        const playerName = prompt.playerName || 'Unknown Player';
 
         // Create Rangers player stats instance to check if the selected player is in the lineup
         const rangerStats = new RangersPlayerStats(data);
@@ -85,9 +87,7 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
               { name: 'Under votes', value: downvoters, inline: true }
             )
             .setFooter({
-              text: `Final Vote Count: ${voteData?.upvotes.size ?? 'N/A'} Over, ${
-                voteData?.downvotes.size ?? 'N/A'
-              } Under`,
+              text: `Final Vote Count: ${voteCounts.upvotes.size} Over, ${voteCounts.downvotes.size} Under`,
             })
             .setTimestamp();
 
@@ -108,9 +108,7 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
               { name: 'Under', value: downvoters, inline: true }
             )
             .setFooter({
-              text: `Final Vote Count: ${voteData?.upvotes.size ?? 'N/A'} Over, ${
-                voteData?.downvotes.size ?? 'N/A'
-              } Under`,
+              text: `Final Vote Count: ${voteCounts.upvotes.size} Over, ${voteCounts.downvotes.size} Under`,
             })
             .setTimestamp();
 
@@ -124,6 +122,7 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
 
         // Send the embed as a new message in the channel
         await channel.send({ embeds: [embed] });
+        await lockPrompt(prompt.id);
         return true;
       }
     }

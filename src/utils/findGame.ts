@@ -19,9 +19,9 @@ const getToday = (): string => {
   return new Intl.DateTimeFormat('en-CA', options).format(new Date());
 };
 
-// Function to fetch the current game ID to pass to the boxscore API
-// We know the Rangers ID is 3, so we can hardcode it for now
-export async function fetchCurrentGameId(): Promise<number | null> {
+// Fetches today's Rangers game (id, season, gameType, etc.) from the score
+// API. We know the Rangers ID is 3, so we can hardcode it for now.
+export async function fetchCurrentGame(): Promise<Game | null> {
   const today = getToday();
   const SCORE_API_URL = `https://api-web.nhle.com/v1/score/${today}`;
   logger.info(`Fetching game data from: ${SCORE_API_URL}`);
@@ -40,14 +40,21 @@ export async function fetchCurrentGameId(): Promise<number | null> {
     }
 
     // Get all the data from the response which should look like the type of ScoreApiResponse
-    const game = data.games.find(
-      (game: Game) => game.awayTeam.id === 3 || game.homeTeam.id === 3
+    return (
+      data.games.find(
+        (game: Game) => game.awayTeam.id === 3 || game.homeTeam.id === 3
+      ) ?? null
     );
-    return game ? game.id : null;
   } catch (error) {
-    logger.error('Failed to fetch current game ID', { error });
+    logger.error('Failed to fetch current game', { error });
     return null;
   }
+}
+
+// Function to fetch the current game ID to pass to the boxscore API
+export async function fetchCurrentGameId(): Promise<number | null> {
+  const game = await fetchCurrentGame();
+  return game ? game.id : null;
 }
 
 //reusable function to fetch box score data

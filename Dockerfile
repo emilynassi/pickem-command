@@ -1,5 +1,6 @@
-# Use a lightweight Node.js image
-FROM node:18-alpine
+# Debian-based (not alpine) so native-binary deps behave predictably in
+# containers; see project-prisma-db-reverted memory for why that matters here.
+FROM node:18-slim
 
 # Set working directory
 WORKDIR /app
@@ -19,5 +20,5 @@ EXPOSE 3000
 # Set environment variables for Datadog
 ENV NODE_OPTIONS="-r dd-trace/init"
 
-# Run the bot using ts-node directly
-CMD ["sh", "-c", "npm run commands && npm start"]
+# Apply any pending DB migrations, then run the bot using ts-node directly
+CMD ["sh", "-c", "npm run db:migrate && npm run commands && npm start"]
