@@ -20,5 +20,5 @@ EXPOSE 3000
 # Set environment variables for Datadog
 ENV NODE_OPTIONS="-r dd-trace/init"
 
-# Run the bot using ts-node directly
-CMD ["sh", "-c", "npm run commands && npm start"]
+# Apply any pending DB migrations, then run the bot using ts-node directly
+CMD ["sh", "-c", "npm run db:migrate && npm run commands && npm start"]

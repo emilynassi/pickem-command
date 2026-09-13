@@ -12,7 +12,6 @@
     "mock:finished": "cp src/mocks/boxscore-finished.json src/mocks/boxscore.json && echo 'Mock game set to FINISHED'",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:import-legacy-winners": "ts-node src/db/importLegacyWinners.ts",
     "lint": "eslint . --fix",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
