@@ -30,8 +30,13 @@ services:
       - POSTGRES_DB=${POSTGRES_DB-pickem}
     volumes:
       - pickem-postgres-data:/var/lib/postgresql/data
+    # Bound to loopback only: the bot reaches this over the internal compose
+    # network at `postgres:5432` regardless, and this mapping exists just so
+    # `npm run dev`/`db:migrate` on the host machine can reach it via
+    # localhost. Binding to 127.0.0.1 means a droplet's public IP never
+    # exposes Postgres, even if its firewall allows 5432 through.
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
 
   discord-bot:
     container_name: pickem-command
