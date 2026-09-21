@@ -128,8 +128,8 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   // Periodically check the API to lock votes. Clears any interval already
   // running for this channel so re-running /vote can't start a second one.
   const intervalId = setInterval(async () => {
-    const locked = await checkApiAndLockVotes(interaction.channel);
-    if (locked) {
+    const result = await checkApiAndLockVotes(interaction.channel);
+    if (result !== 'not-live') {
       clearLockInterval(interaction.channelId);
     }
   }, 60000);

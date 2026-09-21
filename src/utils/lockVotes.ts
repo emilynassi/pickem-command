@@ -16,13 +16,23 @@ import logger from './logger';
 // Load environment variables from .env file
 dotenv.config();
 
-export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
+// 'locked' - the vote was closed out. 'not-live' - checked, game isn't
+// live/final yet, still polling. 'error' - couldn't check (no game found,
+// fetch failed, etc.) - distinct from 'locked' so callers that report
+// success/failure to a user (e.g. a manual lock command) don't tell someone
+// "locked" when it actually failed.
+export type LockCheckResult = 'locked' | 'not-live' | 'error';
+
+export async function checkApiAndLockVotes(
+  channel: any,
+  options?: { force?: boolean }
+): Promise<LockCheckResult> {
   try {
     // Fetch the current game ID
     const gameId = await fetchCurrentGameId();
     if (!gameId) {
       logger.error('No current game ID found.');
-      return false;
+      return 'error';
     }
 
     let data: GameBoxScore;
@@ -37,8 +47,10 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
       data = (await response.json()) as GameBoxScore;
     }
 
-    // Check the condition to lock votes
+    // Check the condition to lock votes (or bypass it if forced - e.g. a
+    // manual /lockvote when the NHL API's gameState is lagging real life)
     if (
+      options?.force ||
       data.gameState === 'LIVE' ||
       data.gameState === 'OFF' ||
       data.gameState === 'FINAL'
@@ -66,18 +78,21 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
         const sweaterNumber = prompt.playerSweaterNumber ?? undefined;
         const playerName = prompt.playerName || 'Unknown Player';
 
-        // Create Rangers player stats instance to check if the selected player is in the lineup
-        const rangerStats = new RangersPlayerStats(data);
-
-        // Look for the selected player across all position groups
-        const selectedPlayer = sweaterNumber
-          ? findPlayerBySweater(rangerStats, sweaterNumber)
-          : null;
+        // The NHL API omits playerByGameStats entirely until a game's data
+        // is actually populated (which can lag slightly behind gameState
+        // itself, or behind a forced manual lock) - without it we can't
+        // confirm lineup status either way, so treat "unknown" as "don't
+        // cancel" rather than crashing or wrongly canceling real votes.
+        const canConfirmLineup = data.playerByGameStats != null;
+        const selectedPlayer =
+          canConfirmLineup && sweaterNumber
+            ? findPlayerBySweater(new RangersPlayerStats(data), sweaterNumber)
+            : undefined;
 
         let embed: EmbedBuilder;
 
-        // If player is not in lineup, create a cancellation embed
-        if (!selectedPlayer) {
+        // Only cancel when we could actually confirm the player isn't playing.
+        if (canConfirmLineup && !selectedPlayer) {
           embed = new EmbedBuilder()
             .setTitle('Voting Canceled')
             .setDescription(`Vote for predicted TOI: **${promptTOI}** has been canceled because ${playerName} is not playing today.`)
@@ -123,12 +138,12 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
         // Send the embed as a new message in the channel
         await channel.send({ embeds: [embed] });
         await lockPrompt(prompt.id);
-        return true;
+        return 'locked';
       }
     }
   } catch (error) {
     logger.error('Failed to check API and lock votes', { error });
-    return true;
+    return 'error';
   }
-  return false;
+  return 'not-live';
 }
