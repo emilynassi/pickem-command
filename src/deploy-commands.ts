@@ -67,7 +67,10 @@ const rest = new REST().setToken(token);
       `Successfully reloaded ${data.length} application (/) commands.`
     );
   } catch (error) {
-    // And of course, make sure you catch and log any errors!
+    // Exit non-zero so a failed deploy doesn't silently proceed to `npm
+    // start` with a stale command schema still registered on Discord - the
+    // Dockerfile CMD chains this with `&&` specifically to rely on that.
     console.error(error);
+    process.exit(1);
   }
 })();
