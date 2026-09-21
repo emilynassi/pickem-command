@@ -31,9 +31,9 @@ export async function checkApiAndLockVotes(channel: any): Promise<boolean> {
       const mockFilePath = path.resolve(__dirname, '../mocks/boxscore.json');
       data = JSON.parse(fs.readFileSync(mockFilePath, 'utf-8'));
     } else {
-      const response = await fetch(
-        `https://api-web.nhle.com/v1/gamecenter/${gameId}/boxscore`
-      );
+      const boxscoreUrl = `https://api-web.nhle.com/v1/gamecenter/${gameId}/boxscore`;
+      logger.info(`Fetching box score from: ${boxscoreUrl}`);
+      const response = await fetch(boxscoreUrl);
       data = (await response.json()) as GameBoxScore;
     }
 
