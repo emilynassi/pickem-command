@@ -52,6 +52,13 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   // Defer reply since we'll be making API calls
   await interaction.deferReply();
 
+  if (!interaction.guildId) {
+    await interaction.editReply({
+      content: 'This command can only be used in a server.',
+    });
+    return;
+  }
+
   const options = interaction.options as CommandInteractionOptionResolver;
   const seasonInput = options.getString('season');
   const gameTypeFilter = (options.getString('gametype') ?? 'all') as GameTypeFilter;
@@ -76,6 +83,7 @@ export async function execute(interaction: ChatInputCommandInteraction) {
   try {
     // Read wins data from the database, sorted by win count descending.
     const winCounts = await getWinCounts({
+      guildId: interaction.guildId,
       season,
       gameType:
         gameTypeFilter === 'all'
