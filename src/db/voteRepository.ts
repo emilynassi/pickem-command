@@ -125,6 +125,7 @@ export async function recordWinners(
 }
 
 export interface WinCountsFilter {
+  guildId: string;
   season: number;
   // Omit (or leave undefined) to combine all game types for the season.
   gameType?: number;
@@ -133,7 +134,10 @@ export interface WinCountsFilter {
 export async function getWinCounts(
   filter: WinCountsFilter
 ): Promise<{ userId: string; wins: number }[]> {
-  const conditions = [eq(prompts.season, filter.season)];
+  const conditions = [
+    eq(prompts.guildId, filter.guildId),
+    eq(prompts.season, filter.season),
+  ];
   if (filter.gameType !== undefined) {
     conditions.push(eq(prompts.gameType, filter.gameType));
   }
